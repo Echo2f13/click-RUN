@@ -8,7 +8,7 @@ No OCR. No mouse simulation. No screen scraping. Just the Windows UI Automation 
 
 ## Install
 
-Download `ClickRunSetup.exe` from [Releases](https://github.com/click-run/click-run/releases) and run it. Click Run appears in your system tray immediately.
+Download `ClickRunSetup.exe` from [Releases](https://github.com/Echo2f13/click-RUN/releases/tag/v1.0.0) and run it. Click Run appears in your system tray immediately.
 
 Or build from source:
 ```bash
