@@ -85,3 +85,5 @@ MultiWindow: 2 whitelisted windows found, 2 with buttons
 - Never re-clicks the same button within the debounce cooldown
 - Never runs with wildcard process matching unless explicitly enabled
 - Never scans non-whitelisted processes even in multi-window mode
+- Never opens a visible window — runs entirely in the system tray
+- Never runs multiple instances — single-instance Mutex guard

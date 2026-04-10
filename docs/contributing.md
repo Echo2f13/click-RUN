@@ -24,6 +24,15 @@ dotnet test tests/ClickRun.Tests/ClickRun.Tests.csproj
 dotnet run --project src/ClickRun/ClickRun.csproj
 ```
 
+The app appears in the system tray (no console window).
+
+### Build Installer
+Requires [Inno Setup 6](https://jrsoftware.org/isinfo.php):
+```bash
+installer\build-installer.bat
+```
+Output: `installer\Output\ClickRunSetup.exe`
+
 ## Test Suite
 
 60 tests across 4 test files:

@@ -24,3 +24,6 @@ Desktop.ini
 
 ## Logs
 *.log
+
+## Installer output
+installer/Output/

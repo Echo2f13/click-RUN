@@ -133,3 +133,37 @@ public static void SaveToFile(Configuration config, string filePath)
 ```csharp
 public static ILogger CreateLogger(string logLevel)
 ```
+
+## Engine
+
+### `ClickRunEngine` (IDisposable)
+Core scan-and-click engine. Runs on a background Task.
+
+```csharp
+public ClickRunEngine(Configuration config, ILogger logger)
+public void Start()        // Start scanning
+public void Stop()         // Stop scanning
+public void Pause()        // Pause scanning
+public void Resume()       // Resume scanning
+public void TogglePause()  // Toggle pause/resume
+public bool IsRunning { get; }
+public bool IsPaused { get; }
+```
+
+## Tray
+
+### `TrayApp` (ApplicationContext)
+System tray application shell. Hosts the engine and provides NotifyIcon with context menu.
+
+```csharp
+public TrayApp(Configuration config, ILogger logger)
+```
+
+Context menu items: Running/Paused status, Pause/Resume, Open Logs, Open Config, Start with Windows, Exit.
+
+### `SingleInstance` (IDisposable)
+Named Mutex guard ensuring only one instance runs.
+
+```csharp
+public bool IsFirstInstance { get; }
+```

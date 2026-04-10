@@ -1,6 +1,6 @@
 # Click Run
 
-An ultra-lightweight Windows background tool that automatically clicks permission prompts (Run, Allow, Approve, Accept, Trust, Continue) in AI development tools like Kiro, VS Code, and Claude Desktop.
+An ultra-lightweight Windows system tray application that automatically clicks permission prompts (Run, Allow, Approve, Accept, Trust, Continue) in AI development tools like Kiro, VS Code, and Claude Desktop.
 
 ## The Problem
 
@@ -8,46 +8,58 @@ AI development tools constantly interrupt your flow with permission prompts:
 - "Run this command?"
 - "Allow this action?"
 - "Trust command and accept?"
-- "Accept command?"
 
 When you're deep in a coding session or away from your desk, these prompts pile up and block progress. Autopilot modes are inconsistent and still prompt. There's no unified solution across tools.
 
 ## The Solution
 
-Click Run monitors windows using the Windows UI Automation API, detects permission buttons that match your whitelist, and clicks them programmatically. No OCR, no mouse simulation, no screen scraping — just deterministic, native API calls.
+Click Run lives in your system tray and monitors windows using the Windows UI Automation API. It detects permission buttons that match your whitelist and clicks them programmatically. No OCR, no mouse simulation, no screen scraping — just deterministic, native API calls.
 
 Two scanning modes:
 - **Foreground only** (default): scans only the active window
-- **Multi-window mode**: scans all visible windows belonging to whitelisted processes, catching prompts in background windows
+- **Multi-window mode**: scans all visible windows belonging to whitelisted processes
 
-## Quick Start
+## Install
 
-### Prerequisites
-- Windows 10 or later
-- .NET 8 SDK
+### Option 1: Installer
+Download `ClickRunSetup.exe` from Releases and run it. Installs to Program Files, adds Start Menu shortcut, and optionally starts on Windows login.
 
-### Build
+### Option 2: Build from source
 ```bash
 dotnet build src/ClickRun/ClickRun.csproj -c Release
-```
-
-### Run
-```bash
 dotnet run --project src/ClickRun/ClickRun.csproj -c Release
 ```
 
-On first run, Click Run creates a default config at `~/.clickrun/config.json` with Kiro, VS Code, and Claude pre-configured.
-
-### Publish (single executable)
+### Option 3: Publish single executable
 ```bash
 dotnet publish src/ClickRun/ClickRun.csproj -c Release
 ```
-
 Output: `src/ClickRun/bin/Release/net8.0-windows/win-x64/publish/ClickRun.exe`
+
+### Build the installer yourself
+Requires [Inno Setup 6](https://jrsoftware.org/isinfo.php):
+```bash
+installer\build-installer.bat
+```
+Output: `installer\Output\ClickRunSetup.exe`
+
+## System Tray
+
+Click Run runs entirely in the system tray — no console window, no main window. On first run, it creates a default config at `~/.clickrun/config.json` with Kiro, VS Code, and Claude pre-configured.
+
+Right-click the tray icon:
+- **Running / Paused** — current status
+- **Pause / Resume** — toggle scanning
+- **Open Logs** — opens `~/.clickrun/` directory
+- **Open Config** — opens `config.json` in your default editor
+- **Start with Windows** — toggle auto-start via registry
+- **Exit** — stop and close
+
+Double-click the tray icon to toggle pause/resume.
 
 ## How It Works
 
-Every 500ms (configurable), Click Run:
+Every 500ms (configurable):
 1. Gets the foreground window — or enumerates all whitelisted windows (multi-window mode)
 2. Scans all visible, enabled Button elements via UI Automation
 3. Rejects buttons on the blocklist (Reject, Cancel, Deny)
@@ -61,18 +73,13 @@ Every 500ms (configurable), Click Run:
 Click Run is designed to be safe by default:
 - Only clicks buttons in whitelisted applications
 - Only clicks buttons with whitelisted labels
-- Blocklist prevents clicking dangerous buttons (Reject, Cancel, Deny) even if they match a substring
-- Keyword priority ensures the safest button is chosen (Run > Accept > Trust)
+- Blocklist prevents clicking dangerous buttons (Reject, Cancel, Deny)
+- Keyword priority ensures the safest button is chosen
 - Foreground window only by default — multi-window requires explicit opt-in
 - Debounce prevents duplicate clicks (2s cooldown)
 - Kill switch hotkey (Ctrl+Alt+R) instantly disables/enables
 - Dry-run mode lets you validate before enabling real clicks
-
-## Configuration
-
-Config file: `~/.clickrun/config.json`
-
-See [configuration.md](configuration.md) for the full reference.
+- Single instance — only one Click Run can run at a time
 
 ## Documentation
 
@@ -83,13 +90,11 @@ See [configuration.md](configuration.md) for the full reference.
 - [API Reference](api-reference.md) — component and class documentation
 - [Contributing](contributing.md) — how to contribute
 
-## Constraints
+## Requirements
 
-- < 50 MB RAM
-- < 1% CPU (idle scanning)
-- No GUI
-- Single executable
-- Windows only (MVP)
+- Windows 10 or later
+- .NET 8 SDK (for building from source)
+- < 50 MB RAM, < 1% CPU (idle scanning)
 
 ## License
 

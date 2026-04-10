@@ -11,7 +11,7 @@ Set these in `~/.clickrun/config.json`:
 }
 ```
 
-Restart Click Run and check `~/.clickrun/clickrun.log` for per-element details.
+Restart Click Run and check `~/.clickrun/clickrun.log` for per-element details. You can also right-click the tray icon → "Open Logs" to open the log directory.
 
 ### Step 2: Check rejection reasons
 
@@ -124,3 +124,28 @@ Element: Process=Kiro | Window=... | Label=Accept command | AutomationId= | Resu
 ```
 
 The `Label` value is what you need to add to `buttonLabels`.
+
+
+## Click Run doesn't appear in the system tray
+
+Click Run is a `WinExe` — it has no console window. If it doesn't appear in the tray:
+- Check if another instance is already running (single-instance guard). Look for `ClickRun.exe` in Task Manager.
+- Check the log file for startup errors: `~/.clickrun/clickrun.log`
+- If there's a config error, Click Run shows a MessageBox and exits.
+
+## Click Run won't start a second time
+
+This is by design. Click Run uses a named Mutex to ensure only one instance runs. If you see no tray icon but the process exists in Task Manager, kill it and restart.
+
+## Auto-start on Windows login
+
+Right-click the tray icon → "Start with Windows". This adds a registry entry at `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`. Uncheck to remove it.
+
+You can also set this during installation if you used the Inno Setup installer.
+
+## Installer issues
+
+If the installer fails:
+- Make sure no Click Run instance is running (the installer tries to stop it automatically)
+- Run the installer as your normal user — it doesn't require admin (installs to user's Program Files)
+- If you get a "file in use" error, manually stop ClickRun.exe from Task Manager first
