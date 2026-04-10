@@ -15,6 +15,7 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
   "dryRun": false,
   "preClickDelayMs": 0,
   "blockedLabels": ["Reject", "Cancel", "Deny"],
+  "multiWindowMode": false,
   "whitelist": [
     {
       "processName": "Kiro",
@@ -47,7 +48,7 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
 - Type: `int`
 - Default: `500`
 - Valid range: `300` – `800`
-- How often (in milliseconds) Click Run scans the foreground window. Values outside the range are clamped automatically with a warning log.
+- How often (in milliseconds) Click Run scans for permission prompts. Values outside the range are clamped automatically with a warning log.
 
 ### `debounceCooldownMs`
 - Type: `int`
@@ -73,7 +74,7 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
 ### `enableDebugInstrumentation`
 - Type: `bool`
 - Default: `false`
-- When `true` (and `logLevel` is `"debug"`), logs detailed per-element information for every button scanned: process name, window title, button label, automation ID, pass/reject result, and specific rejection reason.
+- When `true` (and `logLevel` is `"debug"`), logs detailed per-element information for every button scanned: process name, window title, button label, automation ID, pass/reject result, and specific rejection reason. In multi-window mode, also logs window enumeration diagnostics.
 
 ### `dryRun`
 - Type: `bool`
@@ -91,6 +92,12 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
 - Default: `["Reject", "Cancel", "Deny"]`
 - Button labels that are always rejected, even if they match a whitelist entry. Uses case-insensitive substring matching — a button labeled "Reject changes" would be blocked by the "Reject" entry. This is a hard safety constraint that runs before whitelist matching.
 
+### `multiWindowMode`
+- Type: `bool`
+- Default: `false`
+- When `false` (default), Click Run only scans the foreground (active) window. Background windows with permission prompts are ignored.
+- When `true`, Click Run uses Win32 `EnumWindows` to find all visible windows, filters to only whitelisted process names, and scans each matching window. This catches permission prompts in background windows (e.g., Kiro has a prompt but VS Code is in the foreground). Windows with empty titles (helper/tooltip windows) are skipped. All other safety rules (blocklist, label matching, debounce) still apply. Only one button is clicked per cycle across all windows.
+
 ### `whitelist`
 - Type: `WhitelistEntry[]`
 - Each entry specifies a target application:
@@ -105,7 +112,28 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
   - `matchMode`: `"exact"` (default), `"contains"`, or `"regex"`
 
 #### `whitelist[].buttonLabels`
-- Array of allowed button label strings. Case-insensitive exact match. The order matters for prioritization — earlier labels have higher priority when tie-breaking.
+- Array of allowed button label strings. Case-insensitive exact match. The order defines keyword priority — earlier labels have higher priority. When multiple buttons match, the one matching the earliest label wins.
+
+## Keyword Priority
+
+The `buttonLabels` order is critical. It defines which button gets clicked when multiple pass the filter:
+
+```
+Index 0: "Run"                      ← highest priority
+Index 1: "Allow"
+Index 2: "Approve"
+Index 3: "Continue"
+Index 4: "Yes"
+Index 5: "Accept"
+Index 6: "Accept command"
+Index 7: "Trust"
+Index 8: "Trust command and accept" ← lowest priority
+```
+
+Examples:
+- If both "Run" and "Accept command" pass → "Run" wins (index 0 < index 6)
+- "Trust command and accept" resolves to "Accept" keyword (index 5) not "Trust command and accept" (index 8)
+- "Run anyway" resolves to "Run" keyword (index 0)
 
 ## Window Title Match Modes
 
@@ -142,6 +170,52 @@ Regex patterns are validated at startup. Invalid patterns cause Click Run to exi
     {
       "processName": "Kiro",
       "windowTitles": [{ "pattern": "Kiro", "matchMode": "contains" }],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Trust"]
+    }
+  ]
+}
+```
+
+### Multi-window mode (scan all whitelisted apps)
+```json
+{
+  "multiWindowMode": true,
+  "whitelist": [
+    {
+      "processName": "Kiro",
+      "windowTitles": [{ "pattern": "Kiro", "matchMode": "contains" }],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Accept command", "Trust", "Trust command and accept"]
+    },
+    {
+      "processName": "Code",
+      "windowTitles": [{ "pattern": "Visual Studio Code", "matchMode": "contains" }],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes"]
+    }
+  ]
+}
+```
+
+### Production mode (minimal logging, multi-window)
+```json
+{
+  "logLevel": "info",
+  "enableDebugInstrumentation": false,
+  "multiWindowMode": true,
+  "preClickDelayMs": 50,
+  "whitelist": [
+    {
+      "processName": "Kiro",
+      "windowTitles": [{ "pattern": "Kiro", "matchMode": "contains" }],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Accept command", "Trust", "Trust command and accept"]
+    },
+    {
+      "processName": "Code",
+      "windowTitles": [{ "pattern": "Visual Studio Code", "matchMode": "contains" }],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Trust"]
+    },
+    {
+      "processName": "Claude",
+      "windowTitles": [{ "pattern": "Claude", "matchMode": "contains" }],
       "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Trust"]
     }
   ]

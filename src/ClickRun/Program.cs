@@ -29,7 +29,8 @@ public class Program
             logger.Information(
                 "Config loaded — ScanInterval={ScanIntervalMs}ms, DebounceCooldown={DebounceCooldownMs}ms, " +
                 "KillSwitch={KillSwitchHotkey}, WildcardEnabled={EnableWildcard}, WhitelistEntries={WhitelistCount}, " +
-                "DebugInstrumentation={DebugInstrumentation}, DryRun={DryRun}, PreClickDelayMs={PreClickDelayMs}",
+                "DebugInstrumentation={DebugInstrumentation}, DryRun={DryRun}, PreClickDelayMs={PreClickDelayMs}, " +
+                "MultiWindowMode={MultiWindowMode}",
                 config.ScanIntervalMs,
                 config.DebounceCooldownMs,
                 config.KillSwitchHotkey,
@@ -37,7 +38,8 @@ public class Program
                 config.Whitelist.Count,
                 config.EnableDebugInstrumentation,
                 config.DryRun,
-                config.PreClickDelayMs);
+                config.PreClickDelayMs,
+                config.MultiWindowMode);
 
             // Register kill switch hotkey
             killSwitch = new KillSwitch(config.KillSwitchHotkey, logger);
@@ -105,6 +107,19 @@ public class Program
     {
         var debugInstrumentation = config.EnableDebugInstrumentation;
 
+        // Pre-compute whitelisted process names for multi-window mode
+        HashSet<string>? whitelistedProcesses = null;
+        if (config.MultiWindowMode)
+        {
+            whitelistedProcesses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in config.Whitelist)
+            {
+                if (!string.Equals(entry.ProcessName, "*", StringComparison.Ordinal))
+                    whitelistedProcesses.Add(entry.ProcessName);
+            }
+            logger.Information("Multi-window mode enabled. Scanning processes: {Processes}", string.Join(", ", whitelistedProcesses));
+        }
+
         while (!cancellationToken.IsCancellationRequested)
         {
             try
@@ -116,20 +131,28 @@ public class Program
                 break;
             }
 
-            // 10.2: Check kill switch
             if (!killSwitch.IsEnabled)
             {
                 continue;
             }
 
-            // Scan foreground window
-            var scanResult = detector.Scan();
-            if (scanResult is null)
+            // Collect scan results — single window or multi-window
+            List<ScanResult> scanResults;
+            if (config.MultiWindowMode && whitelistedProcesses != null)
             {
-                continue;
+                scanResults = detector.ScanAll(whitelistedProcesses);
+                if (scanResults.Count == 0)
+                    continue;
+            }
+            else
+            {
+                var single = detector.Scan();
+                if (single is null)
+                    continue;
+                scanResults = new List<ScanResult> { single };
             }
 
-            // 12.6: Rejection reason tracking per cycle
+            // Process all scan results, collect candidates across all windows
             var rejectionCounters = new Dictionary<string, int>
             {
                 ["process_mismatch"] = 0,
@@ -143,81 +166,78 @@ public class Program
                 ["blocked_label"] = 0
             };
 
-            // 10.2–10.4: Filter and build candidates
-            var candidates = new List<Candidate>();
-            int scanCount = scanResult.Buttons.Count;
+            var allCandidates = new List<(Candidate Candidate, ScanResult Source)>();
+            int totalScanCount = 0;
 
-            foreach (var (descriptor, automationElement) in scanResult.Buttons)
+            foreach (var scanResult in scanResults)
             {
-                // 10.3: Safety filter (wildcard check is integrated inside SafetyFilter.Check)
-                var filterResult = safetyFilter.Check(descriptor, config);
-                if (!filterResult.Passed)
-                {
-                    var reason = filterResult.RejectionReason ?? "process_mismatch";
-                    if (rejectionCounters.ContainsKey(reason))
-                        rejectionCounters[reason]++;
+                totalScanCount += scanResult.Buttons.Count;
 
-                    // 12.7: Debug instrumentation — per-element detail
-                    if (debugInstrumentation)
+                foreach (var (descriptor, automationElement) in scanResult.Buttons)
+                {
+                    var filterResult = safetyFilter.Check(descriptor, config);
+                    if (!filterResult.Passed)
                     {
-                        logger.Debug(
-                            "Element: Process={ProcessName} | Window={WindowTitle} | Label={ButtonLabel} | AutomationId={AutomationId} | Result=REJECT | Reason={Reason}",
-                            descriptor.ProcessName, descriptor.WindowTitle, descriptor.ButtonLabel, descriptor.AutomationId, reason);
+                        var reason = filterResult.RejectionReason ?? "process_mismatch";
+                        if (rejectionCounters.ContainsKey(reason))
+                            rejectionCounters[reason]++;
+
+                        if (debugInstrumentation)
+                        {
+                            logger.Debug(
+                                "Element: Process={ProcessName} | Window={WindowTitle} | Label={ButtonLabel} | AutomationId={AutomationId} | Result=REJECT | Reason={Reason}",
+                                descriptor.ProcessName, descriptor.WindowTitle, descriptor.ButtonLabel, descriptor.AutomationId, reason);
+                        }
+
+                        continue;
                     }
 
-                    continue;
-                }
+                    var hash = DebounceTracker.ComputeHash(descriptor);
+                    if (debounceTracker.IsInCooldown(hash, debounceCooldown))
+                    {
+                        rejectionCounters["debounce_cooldown"]++;
 
-                // Debounce check
-                var hash = DebounceTracker.ComputeHash(descriptor);
-                if (debounceTracker.IsInCooldown(hash, debounceCooldown))
-                {
-                    rejectionCounters["debounce_cooldown"]++;
+                        if (debugInstrumentation)
+                        {
+                            logger.Debug(
+                                "Element: Process={ProcessName} | Window={WindowTitle} | Label={ButtonLabel} | AutomationId={AutomationId} | Result=REJECT | Reason=debounce_cooldown",
+                                descriptor.ProcessName, descriptor.WindowTitle, descriptor.ButtonLabel, descriptor.AutomationId);
+                        }
+
+                        continue;
+                    }
 
                     if (debugInstrumentation)
                     {
                         logger.Debug(
-                            "Element: Process={ProcessName} | Window={WindowTitle} | Label={ButtonLabel} | AutomationId={AutomationId} | Result=REJECT | Reason=debounce_cooldown",
+                            "Element: Process={ProcessName} | Window={WindowTitle} | Label={ButtonLabel} | AutomationId={AutomationId} | Result=PASS | Reason=",
                             descriptor.ProcessName, descriptor.WindowTitle, descriptor.ButtonLabel, descriptor.AutomationId);
                     }
 
-                    continue;
+                    var candidate = new Candidate(descriptor, filterResult.MatchedEntry!, hash);
+                    allCandidates.Add((candidate, scanResult));
                 }
-
-                // 12.7: Debug instrumentation — passed element
-                if (debugInstrumentation)
-                {
-                    logger.Debug(
-                        "Element: Process={ProcessName} | Window={WindowTitle} | Label={ButtonLabel} | AutomationId={AutomationId} | Result=PASS | Reason=",
-                        descriptor.ProcessName, descriptor.WindowTitle, descriptor.ButtonLabel, descriptor.AutomationId);
-                }
-
-                candidates.Add(new Candidate(descriptor, filterResult.MatchedEntry!, hash));
             }
 
+            var candidates = allCandidates.Select(c => c.Candidate).ToList();
             int rejectCount = rejectionCounters.Values.Sum();
             int clicked = 0;
 
-            // 12.6: Enhanced debug summary with breakdown by reason
             if (candidates.Count == 0 && !cancellationToken.IsCancellationRequested)
             {
-                LogCycleSummary(logger, scanCount, candidates.Count, rejectCount, rejectionCounters, clicked);
-
+                LogCycleSummary(logger, totalScanCount, candidates.Count, rejectCount, rejectionCounters, clicked);
                 debounceTracker.Prune();
                 continue;
             }
 
-            // 10.4: Button prioritization — select single best candidate
             var best = ButtonPrioritizer.SelectBest(candidates, config.Whitelist);
             if (best is null)
             {
-                LogCycleSummary(logger, scanCount, candidates.Count, rejectCount, rejectionCounters, clicked);
-
+                LogCycleSummary(logger, totalScanCount, candidates.Count, rejectCount, rejectionCounters, clicked);
                 debounceTracker.Prune();
                 continue;
             }
 
-            // 12.8: Dry run mode
             if (config.DryRun)
             {
                 logger.Information(
@@ -228,23 +248,28 @@ public class Program
             }
             else
             {
-                // 10.5: Click with retry — find the matching AutomationElement
+                // Find the AutomationElement from the source ScanResult
                 AutomationElement? bestElement = null;
-                foreach (var (descriptor, automationElement) in scanResult.Buttons)
+                foreach (var (candidate, source) in allCandidates)
                 {
-                    if (DebounceTracker.ComputeHash(descriptor) == best.Hash)
+                    if (candidate.Hash == best.Hash)
                     {
-                        bestElement = automationElement;
+                        foreach (var (descriptor, automationElement) in source.Buttons)
+                        {
+                            if (DebounceTracker.ComputeHash(descriptor) == best.Hash)
+                            {
+                                bestElement = automationElement;
+                                break;
+                            }
+                        }
                         break;
                     }
                 }
 
                 if (bestElement is not null)
                 {
-                    // 12.9: Pass pre-click delay to clicker
                     var clickResult = clicker.Click(bestElement, best.Element, config.PreClickDelayMs);
 
-                    // 10.5: Debounce recording on success, info logging on success
                     if (clickResult.Success)
                     {
                         debounceTracker.Record(best.Hash);
@@ -258,9 +283,7 @@ public class Program
                 }
             }
 
-            // 12.6: Enhanced debug summary
-            LogCycleSummary(logger, scanCount, candidates.Count, rejectCount, rejectionCounters, clicked);
-
+            LogCycleSummary(logger, totalScanCount, candidates.Count, rejectCount, rejectionCounters, clicked);
             debounceTracker.Prune();
         }
     }

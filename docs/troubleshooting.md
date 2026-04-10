@@ -31,6 +31,39 @@ Each rejected element logs a specific reason:
 ### Step 3: Use dry run mode
 Set `"dryRun": true` to test without actually clicking. Look for `[DRY RUN] Would click:` entries in the log.
 
+## Background window prompts not detected
+
+Click Run defaults to foreground-only scanning. To detect prompts in background windows:
+
+```json
+{
+  "multiWindowMode": true
+}
+```
+
+When enabled, check the log for multi-window diagnostics:
+```
+MultiWindow: EnumWindows found 29 visible windows
+MultiWindow: Found window — Process=Kiro | Title=project-a - Kiro
+MultiWindow: Found window — Process=Kiro | Title=project-b - Kiro
+MultiWindow: 2 whitelisted windows found, 2 with buttons
+```
+
+If your background window isn't listed:
+- Verify the process name matches your whitelist (check Task Manager)
+- The window must be visible (not minimized)
+- The window must have a non-empty title
+
+## Wrong button clicked (e.g., Trust instead of Accept)
+
+Click Run uses strict keyword priority based on the `buttonLabels` order in your config. Earlier labels have higher priority. Default order:
+
+```
+Run(0) > Allow(1) > Approve(2) > Continue(3) > Yes(4) > Accept(5) > Trust(7)
+```
+
+If "Trust command and accept" is being clicked instead of a "Run" button, ensure "Run" appears before "Trust" in your `buttonLabels` array.
+
 ## Kill switch hotkey doesn't work
 
 Error in log: `Failed to register global hotkey (Win32 error 1409)`
@@ -51,6 +84,8 @@ Click Run rotates logs automatically at 10 MB, keeping 3 files. If debug instrum
   "enableDebugInstrumentation": false
 }
 ```
+
+Multi-window mode with debug instrumentation generates significantly more log output since every button in every whitelisted window is logged each cycle.
 
 ## Config parse error on startup
 

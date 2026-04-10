@@ -24,6 +24,14 @@ dotnet test tests/ClickRun.Tests/ClickRun.Tests.csproj
 dotnet run --project src/ClickRun/ClickRun.csproj
 ```
 
+## Test Suite
+
+60 tests across 4 test files:
+- `SafetyFilterTests.cs` — whitelist matching, blocklist, wildcard safety, rejection reasons
+- `ButtonPrioritizerTests.cs` — keyword priority, exact vs substring, tie-breaking, multi-candidate selection
+- `DebounceTrackerTests.cs` — hash computation, cooldown, pruning, null AutomationId handling
+- `LoggerSetupTests.cs` — log level parsing, logger creation
+
 ## Project Conventions
 
 - C# with nullable reference types enabled
@@ -38,7 +46,7 @@ dotnet run --project src/ClickRun/ClickRun.csproj
 1. Add a new entry to the `whitelist` array in `~/.clickrun/config.json`
 2. Set the correct `processName` (check Task Manager → Details tab)
 3. Add `windowTitles` with appropriate match mode
-4. Add the exact button labels you want to auto-click
+4. Add the exact button labels you want to auto-click (order matters — earlier = higher priority)
 5. Test with `"dryRun": true` first
 
 No code changes needed — it's config-only.

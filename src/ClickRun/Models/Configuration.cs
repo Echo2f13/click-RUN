@@ -14,5 +14,6 @@ public class Configuration
     public bool DryRun { get; set; } = false;
     public int PreClickDelayMs { get; set; } = 0;
     public List<string> BlockedLabels { get; set; } = new() { "Reject", "Cancel", "Deny" };
+    public bool MultiWindowMode { get; set; } = false;
     public List<WhitelistEntry> Whitelist { get; set; } = new();
 }

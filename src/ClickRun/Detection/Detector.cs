@@ -7,7 +7,7 @@ using Serilog;
 namespace ClickRun.Detection;
 
 /// <summary>
-/// Scans the foreground window for enabled, visible Button elements
+/// Scans windows for enabled, visible Button elements
 /// using the Windows UI Automation API.
 /// </summary>
 public sealed class Detector
@@ -16,6 +16,17 @@ public sealed class Detector
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
     public Detector(ILogger logger)
     {
@@ -38,9 +49,113 @@ public sealed class Detector
                 return null;
             }
 
+            return ScanWindow(hwnd);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, "Unexpected error during foreground scan, skipping cycle");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Scans all visible windows belonging to whitelisted processes.
+    /// Returns a list of ScanResults, one per matching window.
+    /// </summary>
+    public List<ScanResult> ScanAll(HashSet<string> whitelistedProcessNames)
+    {
+        var results = new List<ScanResult>();
+        var windowHandles = new List<IntPtr>();
+
+        EnumWindows((hWnd, _) =>
+        {
+            if (IsWindowVisible(hWnd))
+                windowHandles.Add(hWnd);
+            return true;
+        }, IntPtr.Zero);
+
+        _log.Debug("MultiWindow: EnumWindows found {Count} visible windows", windowHandles.Count);
+
+        int matchedWindows = 0;
+
+        foreach (var hwnd in windowHandles)
+        {
+            try
+            {
+                GetWindowThreadProcessId(hwnd, out uint pid);
+                if (pid == 0) continue;
+
+                string processName;
+                try
+                {
+                    using var process = Process.GetProcessById((int)pid);
+                    processName = process.ProcessName;
+                }
+                catch (ArgumentException)
+                {
+                    continue;
+                }
+
+                if (!whitelistedProcessNames.Contains(processName))
+                {
+                    // Case-insensitive fallback check
+                    bool found = false;
+                    foreach (var wp in whitelistedProcessNames)
+                    {
+                        if (string.Equals(wp, processName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) continue;
+                }
+
+                // Get window title to filter out empty/helper windows
+                string windowTitle;
+                try
+                {
+                    var rootElement = AutomationElement.FromHandle(hwnd);
+                    windowTitle = rootElement.Current.Name ?? string.Empty;
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(windowTitle))
+                {
+                    _log.Debug("MultiWindow: Skipping {Process} window with empty title (handle={Handle})", processName, hwnd);
+                    continue;
+                }
+
+                _log.Debug("MultiWindow: Found window — Process={Process} | Title={Title} | Handle={Handle}", processName, windowTitle, hwnd);
+                matchedWindows++;
+
+                var result = ScanWindow(hwnd);
+                if (result != null && result.Buttons.Count > 0)
+                {
+                    _log.Debug("MultiWindow: Scanned {ButtonCount} buttons in {Process} | {Title}", result.Buttons.Count, processName, windowTitle);
+                    results.Add(result);
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.Debug(ex, "Error scanning window {Handle}, skipping", hwnd);
+            }
+        }
+
+        _log.Debug("MultiWindow: {Matched} whitelisted windows found, {Results} with buttons", matchedWindows, results.Count);
+
+        return results;
+    }
+
+    private ScanResult? ScanWindow(IntPtr hwnd)
+    {
+        try
+        {
             var rootElement = AutomationElement.FromHandle(hwnd);
 
-            // Extract process name from the window's ProcessId property
             var pid = (int)rootElement.GetCurrentPropertyValue(AutomationElement.ProcessIdProperty);
             string processName;
             try
@@ -50,14 +165,12 @@ public sealed class Detector
             }
             catch (ArgumentException)
             {
-                _log.Debug("Process {Pid} no longer exists, skipping cycle", pid);
+                _log.Debug("Process {Pid} no longer exists, skipping window", pid);
                 return null;
             }
 
-            // Extract window title from the Name property
             var windowTitle = rootElement.Current.Name ?? string.Empty;
 
-            // Find all visible, enabled buttons
             var condition = new AndCondition(
                 new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button),
                 new PropertyCondition(AutomationElement.IsEnabledProperty, true),
@@ -84,7 +197,6 @@ public sealed class Detector
                 }
                 catch (ElementNotAvailableException)
                 {
-                    // Element disappeared between FindAll and property access; skip it
                 }
             }
 
@@ -92,17 +204,17 @@ public sealed class Detector
         }
         catch (ElementNotAvailableException ex)
         {
-            _log.Error(ex, "UI Automation element not available, skipping cycle");
+            _log.Error(ex, "UI Automation element not available, skipping window");
             return null;
         }
         catch (COMException ex)
         {
-            _log.Error(ex, "UI Automation COM error, skipping cycle");
+            _log.Error(ex, "UI Automation COM error, skipping window");
             return null;
         }
         catch (Exception ex)
         {
-            _log.Error(ex, "Unexpected error during scan, skipping cycle");
+            _log.Error(ex, "Unexpected error during window scan, skipping");
             return null;
         }
     }

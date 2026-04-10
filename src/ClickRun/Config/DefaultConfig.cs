@@ -33,6 +33,7 @@ public static class DefaultConfig
             DryRun = false,
             PreClickDelayMs = 0,
             BlockedLabels = new List<string>(DefaultBlockedLabels),
+            MultiWindowMode = false,
             Whitelist = new List<WhitelistEntry>
             {
                 new()

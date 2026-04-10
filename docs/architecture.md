@@ -2,7 +2,7 @@
 
 ## Overview
 
-Click Run is a single-process Windows console application built with C# (.NET 8). It runs as a background process with no GUI, scanning the foreground window for permission prompt buttons and clicking them via the Windows UI Automation API.
+Click Run is a single-process Windows console application built with C# (.NET 8). It runs as a background process with no GUI, scanning windows for permission prompt buttons and clicking them via the Windows UI Automation API. It supports two scanning modes: foreground-only (default) and multi-window (scans all whitelisted process windows).
 
 ## Component Diagram
 
@@ -36,9 +36,15 @@ Click Run is a single-process Windows console application built with C# (.NET 8)
 
 ### Detector (`Detection/Detector.cs`)
 
-Retrieves the foreground window handle via Win32 `GetForegroundWindow()` P/Invoke, then uses `AutomationElement.FromHandle()` to get the root UI Automation element. Extracts the process name (via PID lookup) and window title, then calls `FindAll()` with conditions for `ControlType.Button`, `IsEnabled=true`, `IsOffscreen=false`. Builds an `ElementDescriptor` for each button found.
+Two scanning modes:
 
-Returns a `ScanResult` containing the process name, window title, and a list of `(ElementDescriptor, AutomationElement)` tuples.
+**Foreground mode** (`Scan()`): Retrieves the foreground window handle via Win32 `GetForegroundWindow()` P/Invoke, then uses `AutomationElement.FromHandle()` to get the root UI Automation element.
+
+**Multi-window mode** (`ScanAll()`): Uses Win32 `EnumWindows` to enumerate all visible windows, filters by whitelisted process names (via `GetWindowThreadProcessId` + PID lookup), skips windows with empty titles (helper/tooltip windows), and scans each matching window. Logs diagnostic info: total visible windows found, which matched the whitelist, and how many buttons each contained.
+
+Both modes extract the process name (via PID lookup) and window title, then call `FindAll()` with conditions for `ControlType.Button`, `IsEnabled=true`, `IsOffscreen=false`. Builds an `ElementDescriptor` for each button found.
+
+Returns `ScanResult` (single window) or `List<ScanResult>` (multi-window).
 
 Handles all failure modes gracefully: null foreground window, process no longer exists, `ElementNotAvailableException`, `COMException`.
 
@@ -49,7 +55,7 @@ Validates each candidate element through a strict pipeline:
 1. Control type must be Button (`not_button`)
 2. Element must be visible (`not_visible`)
 3. Element must be enabled (`not_enabled`)
-4. Button label must not contain any blocked word (`blocked_label`)
+4. Button label must not contain any blocked word (`blocked_label`) — checked via case-insensitive substring match against `blockedLabels` config
 5. Process name must match a whitelist entry (`process_mismatch`)
 6. Window title must match via TitleMatcher (`title_mismatch`)
 7. Button label must match a whitelist label (`label_mismatch`)
@@ -60,13 +66,18 @@ Returns a `SafetyFilterResult` with pass/fail, the matched whitelist entry, and 
 
 ### Button Prioritizer (`Filtering/ButtonPrioritizer.cs`)
 
-When multiple buttons pass the safety filter in a single scan cycle, selects the single best candidate:
+When multiple buttons pass the safety filter in a single scan cycle, selects the single best candidate using strict keyword priority:
 
-- Priority 0 (highest): button label exactly matches a whitelist label (case-insensitive)
-- Priority 1 (lower): button label contains a whitelist label as a substring
-- Tie-breaking: prefer the candidate matching the earliest button label in the whitelist order
+**Primary ranking**: whitelist label index (earlier = higher priority). The config order defines keyword priority: `Run`(0) > `Allow`(1) > `Approve`(2) > `Accept`(5) > `Trust`(7).
 
-This prevents accidental clicks (e.g., clicking "Cancel" when "Run Anyway" is the intended target).
+**Secondary ranking**: match type — exact match beats substring match at the same label index.
+
+Examples with default config order:
+- `"Run"` (exact, index 0) beats `"Accept command"` (exact, index 6)
+- `"Trust command and accept"` resolves to `"Accept"` (substring, index 5) not `"Trust command and accept"` (exact, index 8), because index 5 < index 8
+- `"Run anyway"` resolves to `"Run"` (substring, index 0)
+
+Only one button is clicked per scan cycle, even in multi-window mode.
 
 ### Clicker (`Clicking/Clicker.cs`)
 
@@ -121,12 +132,15 @@ Program.Main()
   ├── Load config (or create default)
   ├── Setup Serilog logger
   ├── Register kill switch hotkey
-  ├── Log startup info
+  ├── Log startup info (including MultiWindowMode)
   └── Enter scan loop:
         ├── await Task.Delay(scanIntervalMs)
         ├── Check kill switch → skip if disabled
-        ├── Detector.Scan() → ScanResult (or null)
-        ├── For each button:
+        ├── If multiWindowMode:
+        │     Detector.ScanAll(whitelistedProcesses) → List<ScanResult>
+        │   Else:
+        │     Detector.Scan() → single ScanResult (or null)
+        ├── For each button across all scan results:
         │     ├── SafetyFilter.Check() → pass/reject with reason
         │     ├── DebounceTracker.IsInCooldown() → reject if cooling
         │     └── Add to candidates if passed
@@ -145,6 +159,7 @@ Program.Main()
 |-----------|-----------|
 | Language | C# (.NET 8) |
 | UI Automation | System.Windows.Automation (WindowsDesktop framework) |
+| Window Enumeration | Win32 EnumWindows, IsWindowVisible, GetWindowThreadProcessId |
 | Hotkey | Win32 RegisterHotKey via P/Invoke |
 | Config | System.Text.Json |
 | Logging | Serilog + Serilog.Sinks.File |
@@ -166,10 +181,10 @@ src/ClickRun/
 │   ├── ConfigSerializer.cs       # JSON serialization
 │   └── DefaultConfig.cs          # Default config creation
 ├── Detection/
-│   ├── Detector.cs               # UI Automation foreground scanning
+│   ├── Detector.cs               # UI Automation scanning (foreground + multi-window)
 │   └── ScanResult.cs             # Scan result record
 ├── Filtering/
-│   ├── ButtonPrioritizer.cs      # Multi-button priority selection
+│   ├── ButtonPrioritizer.cs      # Keyword-priority button selection
 │   ├── SafetyFilter.cs           # Whitelist + blocklist validation
 │   └── SafetyFilterResult.cs     # Filter result record
 ├── Hotkey/
@@ -190,8 +205,8 @@ src/ClickRun/
 
 tests/ClickRun.Tests/
 ├── ClickRun.Tests.csproj
-├── SafetyFilterTests.cs          # 15 tests
-├── ButtonPrioritizerTests.cs     # 8 tests
-├── DebounceTrackerTests.cs       # 14 tests
+├── SafetyFilterTests.cs          # 17 tests (including blocklist)
+├── ButtonPrioritizerTests.cs     # 14 tests (including keyword priority)
+├── DebounceTrackerTests.cs       # 14 tests (including null AutomationId)
 └── LoggerSetupTests.cs           # 8 tests
 ```

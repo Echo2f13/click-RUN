@@ -18,6 +18,7 @@ Root configuration model. All properties have sensible defaults.
 | `DryRun` | `bool` | `false` | Simulate clicks without executing |
 | `PreClickDelayMs` | `int` | `0` | Pre-click delay in ms (clamped to 0-200) |
 | `BlockedLabels` | `List<string>` | `["Reject", "Cancel", "Deny"]` | Hard-rejected label substrings |
+| `MultiWindowMode` | `bool` | `false` | Scan all whitelisted windows vs foreground only |
 | `Whitelist` | `List<WhitelistEntry>` | `[]` | Target application entries |
 
 ### `WhitelistEntry`
@@ -25,7 +26,7 @@ Root configuration model. All properties have sensible defaults.
 |----------|------|-------------|
 | `ProcessName` | `string` | Windows process name (case-insensitive) |
 | `WindowTitles` | `List<WindowTitlePattern>` | Window title patterns to match |
-| `ButtonLabels` | `List<string>` | Allowed button labels (order matters for priority) |
+| `ButtonLabels` | `List<string>` | Allowed button labels (order defines keyword priority) |
 
 ### `WindowTitlePattern`
 | Property | Type | Default | Description |
@@ -68,7 +69,12 @@ A button that passed the safety filter, ready for prioritization.
 ```csharp
 public ScanResult? Scan()
 ```
-Scans the foreground window. Returns `null` if no window, process gone, or API error.
+Scans the foreground window only. Returns `null` if no window, process gone, or API error.
+
+```csharp
+public List<ScanResult> ScanAll(HashSet<string> whitelistedProcessNames)
+```
+Scans all visible windows belonging to whitelisted processes. Uses `EnumWindows` + `IsWindowVisible` + `GetWindowThreadProcessId`. Skips windows with empty titles. Logs diagnostic info per cycle.
 
 ### `SafetyFilter`
 ```csharp
@@ -82,7 +88,7 @@ Rejection reasons: `not_button`, `not_visible`, `not_enabled`, `blocked_label`, 
 ```csharp
 public static Candidate? SelectBest(List<Candidate> candidates, List<WhitelistEntry> whitelist)
 ```
-Returns the single highest-priority candidate, or `null` if empty.
+Returns the single highest-priority candidate, or `null` if empty. Primary ranking: whitelist label index (keyword priority). Secondary: exact match beats substring.
 
 ### `Clicker`
 ```csharp
@@ -103,6 +109,7 @@ public bool IsInCooldown(string hash, TimeSpan cooldown)
 public void Record(string hash)
 public void Prune()  // removes entries > 10 seconds old
 ```
+Handles null/empty AutomationId gracefully — computes hash without it.
 
 ### `KillSwitch` (IDisposable)
 ```csharp

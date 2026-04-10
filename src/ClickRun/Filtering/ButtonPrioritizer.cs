@@ -4,18 +4,24 @@ namespace ClickRun.Filtering;
 
 /// <summary>
 /// Ranks candidate buttons by label match quality and selects the single best candidate.
+/// 
+/// Ranking strategy (strict keyword priority):
+///   1. Whitelist label index is the PRIMARY ranking — earlier labels in the list are higher priority.
+///      Config order defines keyword priority: Run(0) > Allow(1) > Accept(5) > Trust(7) etc.
+///   2. Match type is the SECONDARY ranking — exact match beats substring match at the same index.
+///
+/// Examples with config order [Run, Allow, Approve, Continue, Yes, Accept, ..., Trust, ...]:
+///   - "Run" (exact, index 0) beats "Accept command" (exact, index 6)
+///   - "Trust command and accept" resolves to "Accept" (substring, index 5) not "Trust command and accept" (exact, index 8)
+///   - "Run anyway" resolves to "Run" (substring, index 0)
 /// </summary>
 public static class ButtonPrioritizer
 {
     /// <summary>
     /// Selects the single highest-priority candidate from the list.
-    /// Priority 0 (highest): button label exactly matches a whitelist label (case-insensitive).
-    /// Priority 1 (lower): button label contains a whitelist label as substring (case-insensitive).
-    /// Tie-breaking: prefer the candidate matching the earliest button label in the whitelist order.
+    /// Primary: earliest whitelist label index wins (keyword priority order).
+    /// Secondary: exact match beats substring match at the same label index.
     /// </summary>
-    /// <param name="candidates">Candidates that passed the safety filter.</param>
-    /// <param name="whitelist">The full whitelist for reference (unused; ordering comes from MatchedEntry).</param>
-    /// <returns>The single best candidate, or null if the list is empty.</returns>
     public static Candidate? SelectBest(List<Candidate> candidates, List<WhitelistEntry> whitelist)
     {
         if (candidates is null || candidates.Count == 0)
@@ -24,47 +30,62 @@ public static class ButtonPrioritizer
         }
 
         Candidate? best = null;
-        int bestPriority = int.MaxValue;
         int bestLabelIndex = int.MaxValue;
+        int bestMatchType = int.MaxValue;
 
         foreach (var candidate in candidates)
         {
-            var (priority, labelIndex) = ComputeRank(candidate);
+            var (labelIndex, matchType) = ComputeRank(candidate);
 
-            if (priority < bestPriority
-                || (priority == bestPriority && labelIndex < bestLabelIndex))
+            // Primary: lower label index wins (keyword priority)
+            // Secondary: lower match type wins (0=exact, 1=substring)
+            if (labelIndex < bestLabelIndex
+                || (labelIndex == bestLabelIndex && matchType < bestMatchType))
             {
                 best = candidate;
-                bestPriority = priority;
                 bestLabelIndex = labelIndex;
+                bestMatchType = matchType;
             }
         }
 
         return best;
     }
 
-    private static (int Priority, int LabelIndex) ComputeRank(Candidate candidate)
+    /// <summary>
+    /// Computes the rank for a candidate.
+    /// Returns (bestLabelIndex, matchType) where:
+    ///   - bestLabelIndex = earliest whitelist label that matches (exact or substring)
+    ///   - matchType = 0 for exact, 1 for substring
+    /// Scans all labels to find the earliest match of any type.
+    /// </summary>
+    private static (int LabelIndex, int MatchType) ComputeRank(Candidate candidate)
     {
         var buttonLabel = candidate.Element.ButtonLabel;
         var labels = candidate.MatchedEntry.ButtonLabels;
 
+        int bestIndex = int.MaxValue;
+        int bestType = int.MaxValue;
+
         for (int i = 0; i < labels.Count; i++)
         {
+            // Stop early — can't beat an earlier index
+            if (i >= bestIndex)
+                break;
+
             if (string.Equals(buttonLabel, labels[i], StringComparison.OrdinalIgnoreCase))
             {
-                return (0, i); // Exact match — highest priority
+                // Exact match at this index — best possible for this index
+                bestIndex = i;
+                bestType = 0;
             }
-        }
-
-        for (int i = 0; i < labels.Count; i++)
-        {
-            if (buttonLabel.Contains(labels[i], StringComparison.OrdinalIgnoreCase))
+            else if (buttonLabel.Contains(labels[i], StringComparison.OrdinalIgnoreCase))
             {
-                return (1, i); // Substring match — lower priority
+                // Substring match at this index
+                bestIndex = i;
+                bestType = 1;
             }
         }
 
-        // No match found (shouldn't happen if safety filter ran correctly)
-        return (int.MaxValue, int.MaxValue);
+        return (bestIndex, bestType);
     }
 }
