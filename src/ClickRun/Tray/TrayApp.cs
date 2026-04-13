@@ -15,6 +15,8 @@ public sealed class TrayApp : ApplicationContext
     private const string AppName = "ClickRun";
     private const string RegistryRunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
+    private static readonly string AppVersion = typeof(TrayApp).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+
     private readonly NotifyIcon _trayIcon;
     private readonly ClickRunEngine _engine;
     private readonly ILogger _logger;
@@ -33,7 +35,7 @@ public sealed class TrayApp : ApplicationContext
         _engine = new ClickRunEngine(config, logger);
 
         // Build context menu
-        _statusItem = new ToolStripMenuItem("Running") { Enabled = false };
+        _statusItem = new ToolStripMenuItem($"Click Run v{AppVersion} — Running") { Enabled = false };
         _pauseItem = new ToolStripMenuItem("Pause", null, OnPauseResume);
         _autoStartItem = new ToolStripMenuItem("Start with Windows", null, OnToggleAutoStart)
         {
@@ -54,7 +56,7 @@ public sealed class TrayApp : ApplicationContext
         _trayIcon = new NotifyIcon
         {
             Icon = LoadIcon(),
-            Text = "Click Run — Running",
+            Text = $"Click Run v{AppVersion} — Running",
             ContextMenuStrip = menu,
             Visible = true
         };
@@ -84,15 +86,15 @@ public sealed class TrayApp : ApplicationContext
 
         if (_engine.IsPaused)
         {
-            _statusItem.Text = "Paused";
+            _statusItem.Text = $"Click Run v{AppVersion} — Paused";
             _pauseItem.Text = "Resume";
-            _trayIcon.Text = "Click Run — Paused";
+            _trayIcon.Text = $"Click Run v{AppVersion} — Paused";
         }
         else
         {
-            _statusItem.Text = "Running";
+            _statusItem.Text = $"Click Run v{AppVersion} — Running";
             _pauseItem.Text = "Pause";
-            _trayIcon.Text = "Click Run — Running";
+            _trayIcon.Text = $"Click Run v{AppVersion} — Running";
         }
     }
 
