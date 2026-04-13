@@ -13,7 +13,7 @@ public class Configuration
     public bool EnableDebugInstrumentation { get; set; } = false;
     public bool DryRun { get; set; } = false;
     public int PreClickDelayMs { get; set; } = 0;
-    public int FirstSeenDelayMs { get; set; } = 2000;
+    public int FirstSeenDelayMs { get; set; } = 500;
     public List<string> BlockedLabels { get; set; } = new() { "Reject", "Cancel", "Deny" };
     public List<string> ContextRequiredLabels { get; set; } = new() { "Yes" };
     public List<string> SafeContextKeywords { get; set; } = new() { "Allow write", "Allow access", "Permission", "Grant", "Allow edit", "Allow all", "Make this edit", "apply edit", "run command", "execute" };

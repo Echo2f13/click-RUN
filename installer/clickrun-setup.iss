@@ -10,9 +10,9 @@
 ; Output: installer/Output/ClickRunSetup.exe
 
 #define MyAppName "Click Run"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.2"
 #define MyAppPublisher "Click Run Contributors"
-#define MyAppURL "https://github.com/click-run/click-run"
+#define MyAppURL "https://github.com/Echo2f13/click-RUN"
 #define MyAppExeName "ClickRun.exe"
 #define PublishDir "..\src\ClickRun\bin\Release\net8.0-windows\win-x64\publish"
 

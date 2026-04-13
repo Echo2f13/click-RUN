@@ -1,5 +1,40 @@
 # Changelog
 
+## v1.1.2
+
+### Faster Prompt Handling
+- Reduced first-seen delay from 2000ms to 500ms — prompts now handled in ~1 second
+- Trust variation dialogs ("Full command" / "Base") auto-clicked almost instantly
+
+### Version Tracking
+- Added version info to executable (File Properties → Details shows 1.1.2)
+- Installer now reflects correct version number
+- GitHub URL updated in installer
+
+## v1.1.1
+
+### Context-Aware "Yes" Clicking
+- "Yes" buttons require context validation — checks dialog text for safe/dangerous keywords
+- Extracts text from UI tree around buttons (not just window title)
+- Safe: "Allow write", "Permission", "Grant", "Make this edit"
+- Dangerous: "Delete", "Remove", "Overwrite" — hard reject
+
+### Keyboard Fallback
+- For Electron/webview panels where UI Automation can't click
+- Detects numbered options ("1 Yes", "2 No"), sends key via SendInput
+- Window focus management via SetForegroundWindow + AttachThreadInput
+
+### Prefix Match for Dynamic Labels
+- Handles Kiro's "Trust command" dialog with dynamic button labels
+- "Full command python -m ..." matches via prefix
+
+### First-Seen Delay
+- Waits before clicking newly detected buttons to prevent premature clicks
+
+### Performance Fix
+- Fixed ContextExtractor walking entire Electron window tree (289K chars, 7s/cycle)
+- Capped at 500 chars, max depth 3 — scan cycles back to ~1 second
+
 ## v1.1.0
 
 ### System Tray App

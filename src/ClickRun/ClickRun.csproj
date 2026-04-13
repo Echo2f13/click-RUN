@@ -10,6 +10,12 @@
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <ApplicationIcon Condition="Exists('icon.ico')">icon.ico</ApplicationIcon>
+    <Version>1.1.2</Version>
+    <AssemblyVersion>1.1.2.0</AssemblyVersion>
+    <FileVersion>1.1.2.0</FileVersion>
+    <Product>Click Run</Product>
+    <Company>Click Run Contributors</Company>
+    <Description>Auto-click permission prompts in AI development tools</Description>
   </PropertyGroup>
 
   <ItemGroup>
