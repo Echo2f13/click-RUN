@@ -31,6 +31,7 @@ public sealed class ClickRunEngine : IDisposable
     private CancellationTokenSource? _cts;
     private Task? _runTask;
     private volatile bool _paused;
+    private readonly Dictionary<string, DateTime> _firstSeen = new();
 
     public bool IsRunning => _runTask is { IsCompleted: false };
     public bool IsPaused => _paused;
@@ -220,6 +221,34 @@ public sealed class ClickRunEngine : IDisposable
                 continue;
             }
 
+            // First-seen delay: don't click until the button has been visible for FirstSeenDelayMs
+            if (_config.FirstSeenDelayMs > 0)
+            {
+                if (!_firstSeen.TryGetValue(best.Hash, out var firstSeenTime))
+                {
+                    _firstSeen[best.Hash] = DateTime.UtcNow;
+                    _logger.Debug("FirstSeen: New button detected, waiting {DelayMs}ms — {Label}",
+                        _config.FirstSeenDelayMs, best.Element.ButtonLabel);
+                    LogSummary(totalScanCount, candidates.Count, rejectCount, rejectionCounters, clicked);
+                    _debounceTracker.Prune();
+                    PruneFirstSeen();
+                    continue;
+                }
+
+                var elapsed = (DateTime.UtcNow - firstSeenTime).TotalMilliseconds;
+                if (elapsed < _config.FirstSeenDelayMs)
+                {
+                    _logger.Debug("FirstSeen: Waiting {Remaining}ms more — {Label}",
+                        (int)(_config.FirstSeenDelayMs - elapsed), best.Element.ButtonLabel);
+                    LogSummary(totalScanCount, candidates.Count, rejectCount, rejectionCounters, clicked);
+                    _debounceTracker.Prune();
+                    continue;
+                }
+
+                // Delay satisfied — remove from first-seen tracker and proceed to click
+                _firstSeen.Remove(best.Hash);
+            }
+
             if (_config.DryRun)
             {
                 _logger.Information("[DRY RUN] Would click: {ProcessName} | {WindowTitle} | {ButtonLabel}",
@@ -269,5 +298,14 @@ public sealed class ClickRunEngine : IDisposable
             c["process_mismatch"], c["title_mismatch"], c["label_mismatch"], c["blocked_label"],
             c["not_button"], c["not_visible"], c["not_enabled"],
             c["debounce_cooldown"], c["wildcard_blocked"], clicked);
+    }
+
+    private void PruneFirstSeen()
+    {
+        // Remove entries older than 10 seconds (button disappeared before delay was met)
+        var cutoff = DateTime.UtcNow - TimeSpan.FromSeconds(10);
+        var stale = _firstSeen.Where(kvp => kvp.Value < cutoff).Select(kvp => kvp.Key).ToList();
+        foreach (var key in stale)
+            _firstSeen.Remove(key);
     }
 }

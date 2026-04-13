@@ -13,11 +13,13 @@ public class Configuration
     public bool EnableDebugInstrumentation { get; set; } = false;
     public bool DryRun { get; set; } = false;
     public int PreClickDelayMs { get; set; } = 0;
+    public int FirstSeenDelayMs { get; set; } = 2000;
     public List<string> BlockedLabels { get; set; } = new() { "Reject", "Cancel", "Deny" };
     public List<string> ContextRequiredLabels { get; set; } = new() { "Yes" };
     public List<string> SafeContextKeywords { get; set; } = new() { "Allow write", "Allow access", "Permission", "Grant", "Allow edit", "Allow all", "Make this edit", "apply edit", "run command", "execute" };
     public List<string> DangerousContextKeywords { get; set; } = new() { "Delete", "Remove", "Overwrite", "Reset", "Drop", "Erase", "Destroy" };
     public bool MultiWindowMode { get; set; } = false;
     public bool EnableKeyboardFallback { get; set; } = false;
+    public List<string> PrefixMatchLabels { get; set; } = new() { "Full command" };
     public List<WhitelistEntry> Whitelist { get; set; } = new();
 }

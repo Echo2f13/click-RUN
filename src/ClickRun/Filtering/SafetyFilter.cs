@@ -80,8 +80,8 @@ public class SafetyFilter
 
             titleMatched = true;
 
-            // Button label: case-insensitive exact match against any entry label
-            if (!MatchesButtonLabel(element.ButtonLabel, entry.ButtonLabels))
+            // Button label: exact match OR prefix match against whitelist labels
+            if (!MatchesButtonLabel(element.ButtonLabel, entry.ButtonLabels, config.PrefixMatchLabels))
             {
                 continue;
             }
@@ -131,11 +131,21 @@ public class SafetyFilter
         return Reject(element, "label_mismatch");
     }
 
-    private static bool MatchesButtonLabel(string buttonLabel, List<string> allowedLabels)
+    private static bool MatchesButtonLabel(string buttonLabel, List<string> allowedLabels, List<string> prefixMatchLabels)
     {
+        // Exact match
         foreach (var label in allowedLabels)
         {
             if (string.Equals(buttonLabel, label, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        // Prefix match — for dynamic labels like "Full command python -m ..."
+        foreach (var prefix in prefixMatchLabels)
+        {
+            if (buttonLabel.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
