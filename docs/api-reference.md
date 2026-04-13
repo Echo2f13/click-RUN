@@ -18,7 +18,11 @@ Root configuration model. All properties have sensible defaults.
 | `DryRun` | `bool` | `false` | Simulate clicks without executing |
 | `PreClickDelayMs` | `int` | `0` | Pre-click delay in ms (clamped to 0-200) |
 | `BlockedLabels` | `List<string>` | `["Reject", "Cancel", "Deny"]` | Hard-rejected label substrings |
+| `ContextRequiredLabels` | `List<string>` | `["Yes"]` | Labels requiring context validation |
+| `SafeContextKeywords` | `List<string>` | `["Allow write", ...]` | Safe context keywords for Yes validation |
+| `DangerousContextKeywords` | `List<string>` | `["Delete", ...]` | Dangerous context keywords (hard reject) |
 | `MultiWindowMode` | `bool` | `false` | Scan all whitelisted windows vs foreground only |
+| `EnableKeyboardFallback` | `bool` | `false` | Send numbered keys for Electron/webview panels |
 | `Whitelist` | `List<WhitelistEntry>` | `[]` | Target application entries |
 
 ### `WhitelistEntry`
@@ -54,6 +58,8 @@ Describes a UI element candidate. Immutable.
 | `IsVisible` | `bool` | Whether element is visible |
 | `IsEnabled` | `bool` | Whether element is enabled |
 
+| `ContextText` | `string` | Extracted text from dialog container around button |
+
 ### `Candidate` (record)
 A button that passed the safety filter, ready for prioritization.
 
@@ -82,7 +88,7 @@ public SafetyFilterResult Check(ElementDescriptor element, Configuration config)
 ```
 Returns `SafetyFilterResult` with `Passed`, `MatchedEntry`, and `RejectionReason`.
 
-Rejection reasons: `not_button`, `not_visible`, `not_enabled`, `blocked_label`, `process_mismatch`, `title_mismatch`, `label_mismatch`.
+Rejection reasons: `not_button`, `not_visible`, `not_enabled`, `blocked_label`, `dangerous_context`, `missing_safe_context`, `process_mismatch`, `title_mismatch`, `label_mismatch`.
 
 ### `ButtonPrioritizer`
 ```csharp
@@ -95,6 +101,18 @@ Returns the single highest-priority candidate, or `null` if empty. Primary ranki
 public ClickResult Click(AutomationElement button, ElementDescriptor descriptor, int preClickDelayMs = 0)
 ```
 Clicks via InvokePattern with optional pre-click delay and single retry. Returns `ClickResult` with `Success` and optional `ErrorMessage`.
+
+### `KeyboardFallback`
+```csharp
+public bool TryFallback(string contextText, string windowTitle, string processName, IntPtr windowHandle, Configuration config, bool dryRun)
+```
+Fallback for Electron/webview panels. Detects numbered option patterns (e.g., "1 Yes") in context text, focuses the target window via `SetForegroundWindow` + `AttachThreadInput`, and sends the key via `SendInput`. Returns `true` if a key was sent.
+
+### `ContextExtractor`
+```csharp
+public static string Extract(AutomationElement button, AutomationElement windowRoot, ILogger? logger = null)
+```
+Extracts visible text from the UI tree around a button. Walks up to the nearest small container (Group/Custom), collects text from descendants. Capped at 500 chars. Falls back to sibling text if no small container found. Returns empty string rather than walking the entire window tree.
 
 ### `TitleMatcher`
 ```csharp

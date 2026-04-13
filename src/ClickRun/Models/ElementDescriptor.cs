@@ -10,4 +10,5 @@ public sealed record ElementDescriptor(
     string AutomationId,
     bool IsButton,
     bool IsVisible,
-    bool IsEnabled);
+    bool IsEnabled,
+    string ContextText = "");

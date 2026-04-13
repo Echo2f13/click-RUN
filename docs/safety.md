@@ -4,7 +4,7 @@ Click Run is designed with safety as the top priority. Every layer of the system
 
 ## Defense in Depth
 
-Click Run uses 7 layers of protection before any click is executed:
+Click Run uses 8 layers of protection before any click is executed:
 
 ### Layer 1: Window Scope Control
 By default, Click Run only scans the currently active (foreground) window. Background windows are completely ignored.
@@ -27,23 +27,38 @@ The blocklist runs before the whitelist, so even if a button label like "Cancel 
 ### Layer 5: Button Label Whitelist
 Only buttons whose labels exactly match (case-insensitive) a whitelist entry are accepted. Substring matching is used only for prioritization, not for initial acceptance by the safety filter.
 
-### Layer 6: Keyword Priority
+### Layer 6: Context-Aware "Yes" Validation
+Labels in `contextRequiredLabels` (default: "Yes") require additional context validation. Click Run extracts text from the UI tree around the button (dialog container, sibling elements) and checks:
+- If context contains any `dangerousContextKeywords` (Delete, Remove, Overwrite, etc.) → hard reject
+- If context contains at least one `safeContextKeywords` (Allow write, Permission, Grant, etc.) → pass
+- If neither → reject
+
+This prevents blind "Yes" clicking on dangerous dialogs while allowing safe permission prompts. Labels like "Run" and "Accept" skip this check entirely.
+
+### Layer 7: Keyword Priority
 When multiple buttons pass all filters, the prioritizer selects the single safest choice using strict keyword priority defined by the whitelist label order:
 
 - `Run` (index 0) — highest priority
 - `Allow` (index 1)
 - `Approve` (index 2)
 - `Continue` (index 3)
-- `Yes` (index 4)
+- `Yes` (index 4) — only if context-validated
 - `Accept` (index 5)
 - `Trust` (index 7)
 
-The label index is the primary ranking. Match type (exact vs substring) is secondary. This means "Trust command and accept" resolves to the "Accept" keyword (index 5) rather than "Trust" (index 7), because Accept has higher priority.
-
 Only one button is clicked per scan cycle, even in multi-window mode across multiple windows.
 
-### Layer 7: Debounce Protection
+### Layer 8: Debounce Protection
 After clicking a button, a 2-second cooldown prevents re-clicking the same element. Elements are identified by a SHA256 hash of their process name, window title, button label, and automation ID.
+
+## Keyboard Fallback Safety
+
+When `enableKeyboardFallback` is true and UI Automation finds no clickable buttons, Click Run checks context text for numbered options (e.g., "1 Yes", "2 No"). Before sending any key:
+- Dangerous context keywords are checked — if found, no key is sent
+- The option label must be in the whitelist
+- The option label must not be in the blocklist
+- The target window is focused before input
+- Only the lowest-numbered safe option is selected
 
 ## Kill Switch
 

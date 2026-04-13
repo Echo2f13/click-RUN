@@ -15,7 +15,11 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
   "dryRun": false,
   "preClickDelayMs": 0,
   "blockedLabels": ["Reject", "Cancel", "Deny"],
+  "contextRequiredLabels": ["Yes"],
+  "safeContextKeywords": ["Allow write", "Allow access", "Permission", "Grant", "Make this edit", "apply edit", "run command", "execute"],
+  "dangerousContextKeywords": ["Delete", "Remove", "Overwrite", "Reset", "Drop", "Erase", "Destroy"],
   "multiWindowMode": false,
+  "enableKeyboardFallback": false,
   "whitelist": [
     {
       "processName": "Kiro",
@@ -97,6 +101,26 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
 - Default: `false`
 - When `false` (default), Click Run only scans the foreground (active) window. Background windows with permission prompts are ignored.
 - When `true`, Click Run uses Win32 `EnumWindows` to find all visible windows, filters to only whitelisted process names, and scans each matching window. This catches permission prompts in background windows (e.g., Kiro has a prompt but VS Code is in the foreground). Windows with empty titles (helper/tooltip windows) are skipped. All other safety rules (blocklist, label matching, debounce) still apply. Only one button is clicked per cycle across all windows.
+
+### `enableKeyboardFallback`
+- Type: `bool`
+- Default: `false`
+- When `true`, if UI Automation finds no clickable candidates in a scan cycle, Click Run checks the extracted context text for numbered option patterns (e.g., "1 Yes", "2 No") and sends the corresponding key press. This handles Electron/webview panels where buttons aren't accessible via UI Automation. The fallback applies all safety checks (whitelist, blocklist, dangerous context) before sending any key. The target window is focused via `SetForegroundWindow` before input.
+
+### `contextRequiredLabels`
+- Type: `string[]`
+- Default: `["Yes"]`
+- Button labels that require context validation before clicking. When a button matches one of these labels, Click Run checks the dialog context text (extracted from the UI tree around the button + window title) for safe and dangerous keywords. If the context contains a dangerous keyword, the click is rejected. If no safe keyword is found, the click is also rejected. Labels not in this list (like "Run", "Accept") are clicked without context checks.
+
+### `safeContextKeywords`
+- Type: `string[]`
+- Default: `["Allow write", "Allow access", "Permission", "Grant", "Allow edit", "Allow all", "Make this edit", "apply edit", "run command", "execute"]`
+- Keywords that must appear in the dialog context for context-required labels (like "Yes") to be clicked. Case-insensitive substring match against the combined window title + extracted UI context text.
+
+### `dangerousContextKeywords`
+- Type: `string[]`
+- Default: `["Delete", "Remove", "Overwrite", "Reset", "Drop", "Erase", "Destroy"]`
+- Keywords that cause immediate rejection of context-required labels. Checked before safe keywords — if both a safe and dangerous keyword are present, the click is rejected. Case-insensitive substring match.
 
 ### `whitelist`
 - Type: `WhitelistEntry[]`

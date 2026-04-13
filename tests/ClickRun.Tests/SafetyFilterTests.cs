@@ -268,3 +268,137 @@ public class SafetyFilterTests
         Assert.False(result.Passed);
     }
 }
+
+public class ContextBasedYesFilterTests
+{
+    private readonly SafetyFilter _filter;
+
+    public ContextBasedYesFilterTests()
+    {
+        var logger = new LoggerConfiguration().CreateLogger();
+        _filter = new SafetyFilter(logger);
+    }
+
+    private static Configuration MakeConfig() => new()
+    {
+        ContextRequiredLabels = new List<string> { "Yes" },
+        SafeContextKeywords = new List<string> { "Allow write", "Allow access", "Permission", "Grant" },
+        DangerousContextKeywords = new List<string> { "Delete", "Remove", "Overwrite", "Reset", "Drop" },
+        Whitelist = new List<WhitelistEntry>
+        {
+            new()
+            {
+                ProcessName = "Code",
+                WindowTitles = new List<WindowTitlePattern>
+                {
+                    new() { Pattern = "Visual Studio Code", MatchMode = MatchMode.Contains }
+                },
+                ButtonLabels = new List<string> { "Run", "Allow", "Yes", "Yes, allow all edits this session" }
+            }
+        }
+    };
+
+    private static ElementDescriptor MakeElement(string label, string windowTitle) => new(
+        ProcessName: "Code",
+        WindowTitle: windowTitle,
+        ButtonLabel: label,
+        AutomationId: "btn",
+        IsButton: true,
+        IsVisible: true,
+        IsEnabled: true);
+
+    [Fact]
+    public void Yes_WithSafeContext_Passes()
+    {
+        var config = MakeConfig();
+        var element = MakeElement("Yes", "Allow write to file.ts - Visual Studio Code");
+        var result = _filter.Check(element, config);
+
+        Assert.True(result.Passed);
+    }
+
+    [Fact]
+    public void Yes_WithGrantContext_Passes()
+    {
+        var config = MakeConfig();
+        var element = MakeElement("Yes", "Grant Permission - Visual Studio Code");
+        var result = _filter.Check(element, config);
+
+        Assert.True(result.Passed);
+    }
+
+    [Fact]
+    public void Yes_WithDangerousContext_Rejected()
+    {
+        var config = MakeConfig();
+        var element = MakeElement("Yes", "Delete file? - Visual Studio Code");
+        var result = _filter.Check(element, config);
+
+        Assert.False(result.Passed);
+        Assert.Equal("dangerous_context", result.RejectionReason);
+    }
+
+    [Fact]
+    public void Yes_WithRemoveContext_Rejected()
+    {
+        var config = MakeConfig();
+        var element = MakeElement("Yes", "Remove all changes? - Visual Studio Code");
+        var result = _filter.Check(element, config);
+
+        Assert.False(result.Passed);
+        Assert.Equal("dangerous_context", result.RejectionReason);
+    }
+
+    [Fact]
+    public void Yes_WithNoSafeContext_Rejected()
+    {
+        var config = MakeConfig();
+        var element = MakeElement("Yes", "Some random dialog - Visual Studio Code");
+        var result = _filter.Check(element, config);
+
+        Assert.False(result.Passed);
+        Assert.Equal("missing_safe_context", result.RejectionReason);
+    }
+
+    [Fact]
+    public void YesAllowAllEdits_WithSafeContext_Passes()
+    {
+        var config = MakeConfig();
+        var element = MakeElement("Yes, allow all edits this session", "Allow access - Visual Studio Code");
+        var result = _filter.Check(element, config);
+
+        Assert.True(result.Passed);
+    }
+
+    [Fact]
+    public void Run_DoesNotRequireContext()
+    {
+        var config = MakeConfig();
+        var element = MakeElement("Run", "Whatever title - Visual Studio Code");
+        var result = _filter.Check(element, config);
+
+        Assert.True(result.Passed);
+    }
+
+    [Fact]
+    public void Allow_DoesNotRequireContext()
+    {
+        var config = MakeConfig();
+        var element = MakeElement("Allow", "Whatever title - Visual Studio Code");
+        var result = _filter.Check(element, config);
+
+        Assert.True(result.Passed);
+    }
+
+    [Fact]
+    public void DangerousContext_TakesPriorityOverSafe()
+    {
+        var config = MakeConfig();
+        // Window title contains both "Allow write" (safe) and "Delete" (dangerous)
+        var element = MakeElement("Yes", "Allow write and Delete backup - Visual Studio Code");
+        var result = _filter.Check(element, config);
+
+        Assert.False(result.Passed);
+        Assert.Equal("dangerous_context", result.RejectionReason);
+    }
+}

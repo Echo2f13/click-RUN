@@ -86,6 +86,33 @@ public class SafetyFilter
                 continue;
             }
 
+            // Context-based safety check for labels that require safe context (e.g., "Yes")
+            if (RequiresContextValidation(element.ButtonLabel, config.ContextRequiredLabels))
+            {
+                // Build full context: window title + extracted UI context text
+                var fullContext = string.IsNullOrEmpty(element.ContextText)
+                    ? element.WindowTitle
+                    : $"{element.WindowTitle} {element.ContextText}";
+
+                _logger.Debug(
+                    "Context check for '{Label}': {ContextLength} chars | Preview: {Preview}",
+                    element.ButtonLabel,
+                    fullContext.Length,
+                    fullContext.Length > 120 ? fullContext[..120] + "..." : fullContext);
+
+                // Dangerous context check first — hard reject
+                if (ContainsAny(fullContext, config.DangerousContextKeywords))
+                {
+                    return Reject(element, "dangerous_context");
+                }
+
+                // Safe context check — must contain at least one safe keyword
+                if (!ContainsAny(fullContext, config.SafeContextKeywords))
+                {
+                    return Reject(element, "missing_safe_context");
+                }
+            }
+
             // All checks passed
             return new SafetyFilterResult(true, entry, null);
         }
@@ -122,6 +149,32 @@ public class SafetyFilter
         foreach (var blocked in blockedLabels)
         {
             if (buttonLabel.Contains(blocked, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool RequiresContextValidation(string buttonLabel, List<string> contextRequiredLabels)
+    {
+        foreach (var label in contextRequiredLabels)
+        {
+            if (buttonLabel.Contains(label, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsAny(string text, List<string> keywords)
+    {
+        foreach (var keyword in keywords)
+        {
+            if (text.Contains(keyword, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }

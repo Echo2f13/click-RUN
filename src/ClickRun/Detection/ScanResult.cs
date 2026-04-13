@@ -9,4 +9,5 @@ namespace ClickRun.Detection;
 public sealed record ScanResult(
     string ProcessName,
     string WindowTitle,
+    IntPtr WindowHandle,
     List<(ElementDescriptor Descriptor, AutomationElement Element)> Buttons);

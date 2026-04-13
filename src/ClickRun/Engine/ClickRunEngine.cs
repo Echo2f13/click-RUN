@@ -24,6 +24,7 @@ public sealed class ClickRunEngine : IDisposable
     private readonly SafetyFilter _safetyFilter;
     private readonly DebounceTracker _debounceTracker;
     private readonly Clicker _clicker;
+    private readonly KeyboardFallback _keyboardFallback;
     private readonly TimeSpan _debounceCooldown;
     private readonly HashSet<string>? _whitelistedProcesses;
 
@@ -43,6 +44,7 @@ public sealed class ClickRunEngine : IDisposable
         _safetyFilter = new SafetyFilter(logger);
         _debounceTracker = new DebounceTracker();
         _clicker = new Clicker(logger);
+        _keyboardFallback = new KeyboardFallback(logger);
         _debounceCooldown = TimeSpan.FromMilliseconds(config.DebounceCooldownMs);
 
         if (config.MultiWindowMode)
@@ -126,7 +128,8 @@ public sealed class ClickRunEngine : IDisposable
             {
                 ["process_mismatch"] = 0, ["title_mismatch"] = 0, ["label_mismatch"] = 0,
                 ["not_button"] = 0, ["not_visible"] = 0, ["not_enabled"] = 0,
-                ["debounce_cooldown"] = 0, ["wildcard_blocked"] = 0, ["blocked_label"] = 0
+                ["debounce_cooldown"] = 0, ["wildcard_blocked"] = 0, ["blocked_label"] = 0,
+                ["dangerous_context"] = 0, ["missing_safe_context"] = 0
             };
 
             var allCandidates = new List<(Candidate Candidate, ScanResult Source)>();
@@ -143,8 +146,9 @@ public sealed class ClickRunEngine : IDisposable
                         var reason = filterResult.RejectionReason ?? "process_mismatch";
                         if (rejectionCounters.ContainsKey(reason)) rejectionCounters[reason]++;
                         if (debugInstrumentation)
-                            _logger.Debug("Element: Process={ProcessName} | Window={WindowTitle} | Label={ButtonLabel} | AutomationId={AutomationId} | Result=REJECT | Reason={Reason}",
-                                descriptor.ProcessName, descriptor.WindowTitle, descriptor.ButtonLabel, descriptor.AutomationId, reason);
+                        _logger.Debug("Element: Process={ProcessName} | Window={WindowTitle} | Label={ButtonLabel} | AutomationId={AutomationId} | Result=REJECT | Reason={Reason} | Context={Context}",
+                            descriptor.ProcessName, descriptor.WindowTitle, descriptor.ButtonLabel, descriptor.AutomationId, reason,
+                            descriptor.ContextText.Length > 80 ? descriptor.ContextText[..80] + "..." : descriptor.ContextText);
                         continue;
                     }
 
@@ -159,8 +163,9 @@ public sealed class ClickRunEngine : IDisposable
                     }
 
                     if (debugInstrumentation)
-                        _logger.Debug("Element: Process={ProcessName} | Window={WindowTitle} | Label={ButtonLabel} | AutomationId={AutomationId} | Result=PASS | Reason=",
-                            descriptor.ProcessName, descriptor.WindowTitle, descriptor.ButtonLabel, descriptor.AutomationId);
+                        _logger.Debug("Element: Process={ProcessName} | Window={WindowTitle} | Label={ButtonLabel} | AutomationId={AutomationId} | Result=PASS | Context={Context}",
+                            descriptor.ProcessName, descriptor.WindowTitle, descriptor.ButtonLabel, descriptor.AutomationId,
+                            descriptor.ContextText.Length > 80 ? descriptor.ContextText[..80] + "..." : descriptor.ContextText);
 
                     allCandidates.Add((new Candidate(descriptor, filterResult.MatchedEntry!, hash), scanResult));
                 }
@@ -172,6 +177,36 @@ public sealed class ClickRunEngine : IDisposable
 
             if (candidates.Count == 0)
             {
+                // Keyboard fallback: if no UI Automation candidates found, try numbered options
+                if (_config.EnableKeyboardFallback && scanResults.Count > 0)
+                {
+                    foreach (var scanResult in scanResults)
+                    {
+                        // Collect all context text from this window's buttons
+                        var allContext = string.Join(" ",
+                            scanResult.Buttons
+                                .Select(b => b.Descriptor.ContextText)
+                                .Where(c => !string.IsNullOrEmpty(c)));
+
+                        if (!string.IsNullOrEmpty(allContext))
+                        {
+                            var sent = _keyboardFallback.TryFallback(
+                                allContext,
+                                scanResult.WindowTitle,
+                                scanResult.ProcessName,
+                                scanResult.WindowHandle,
+                                _config,
+                                _config.DryRun);
+
+                            if (sent)
+                            {
+                                clicked = 1;
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 LogSummary(totalScanCount, candidates.Count, rejectCount, rejectionCounters, clicked);
                 _debounceTracker.Prune();
                 continue;

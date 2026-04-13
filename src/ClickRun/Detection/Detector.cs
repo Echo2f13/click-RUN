@@ -184,6 +184,9 @@ public sealed class Detector
             {
                 try
                 {
+                    // Extract context text from the UI tree around this button
+                    var contextText = ContextExtractor.Extract(element, rootElement, _log);
+
                     var descriptor = new ElementDescriptor(
                         ProcessName: processName,
                         WindowTitle: windowTitle,
@@ -191,7 +194,8 @@ public sealed class Detector
                         AutomationId: element.Current.AutomationId ?? string.Empty,
                         IsButton: true,
                         IsVisible: !element.Current.IsOffscreen,
-                        IsEnabled: element.Current.IsEnabled);
+                        IsEnabled: element.Current.IsEnabled,
+                        ContextText: contextText);
 
                     buttons.Add((descriptor, element));
                 }
@@ -200,7 +204,7 @@ public sealed class Detector
                 }
             }
 
-            return new ScanResult(processName, windowTitle, buttons);
+            return new ScanResult(processName, windowTitle, hwnd, buttons);
         }
         catch (ElementNotAvailableException ex)
         {
