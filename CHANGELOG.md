@@ -1,5 +1,44 @@
 # Changelog
 
+## v1.2.0
+
+### Trust Dialog Fallback
+- New opt-in fallback for blocking trust dialogs where no execution buttons exist
+- Detects when Kiro shows only trust-level options ("Full command", "Base", "Partial") without "Accept" or "Run"
+- When `trustFallbackMode: "safe"` is enabled, clicks only "Full command ..." (narrowest trust scope)
+- Never clicks "Base", "Partial", or broad trust options
+- 6 independent safety checks: mode gate, blocking detection, descriptor validation, process whitelist, execution label guard, debounce
+
+### IClickExecutor Abstraction
+- Extracted click execution behind `IClickExecutor` interface
+- Production uses `AutomationClickExecutor` (real UI Automation)
+- Tests use `MockClickExecutor` for full end-to-end pipeline testing without COM dependencies
+
+### Strict Config Parsing
+- Custom `StrictTrustFallbackModeConverter` for `trustFallbackMode` — accepts only `"off"` or `"safe"` (case-sensitive)
+- Rejects numeric values, PascalCase, and any non-string input
+- Invalid config values cause startup failure with clear error message
+
+### Trust Label Word Boundary Matching
+- Trust label detection uses word-boundary prefix matching
+- "Base python" matches, "Baseball" does not
+- "Partial python" matches, "Partially complete" does not
+
+### Debounce Hash Collision Fix
+- Replaced pipe-delimited hash format with length-prefixed encoding
+- Prevents hash collisions when field values contain the delimiter character
+
+### Safety Hardening
+- Process whitelist check is case-sensitive for trust fallback (stricter than normal flow)
+- Wildcard `"*"` process entries explicitly excluded from trust fallback
+- Descriptor validation requires match in scan result (ProcessName + ButtonLabel + AutomationId)
+- ScanHash verification ensures detection results came from the real detector
+- Null whitelist guard throws immediately instead of silently proceeding
+
+### New Config Option
+- `trustFallbackMode`: `"off"` (default) or `"safe"` — controls trust dialog fallback behavior
+- See `docs/configuration.md` for full documentation
+
 ## v1.1.2
 
 ### Faster Prompt Handling

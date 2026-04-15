@@ -20,6 +20,7 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
   "dangerousContextKeywords": ["Delete", "Remove", "Overwrite", "Reset", "Drop", "Erase", "Destroy"],
   "multiWindowMode": false,
   "enableKeyboardFallback": false,
+  "trustFallbackMode": "off",
   "whitelist": [
     {
       "processName": "Kiro",
@@ -106,6 +107,34 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
 - Type: `bool`
 - Default: `false`
 - When `true`, if UI Automation finds no clickable candidates in a scan cycle, Click Run checks the extracted context text for numbered option patterns (e.g., "1 Yes", "2 No") and sends the corresponding key press. This handles Electron/webview panels where buttons aren't accessible via UI Automation. The fallback applies all safety checks (whitelist, blocklist, dangerous context) before sending any key. The target window is focused via `SetForegroundWindow` before input.
+
+### `trustFallbackMode`
+- Type: `string`
+- Default: `"off"`
+- Options: `"off"`, `"safe"`
+- Controls trust dialog fallback behavior. A trust dialog is "blocking" when the safety filter passes zero candidates, at least one trust label is present, and no execution labels are found in the scan.
+
+| Value | Behavior |
+|-------|----------|
+| `"off"` | Default. Trust dialogs are ignored entirely. If a blocking trust dialog appears, the system stalls until the user intervenes manually. |
+| `"safe"` | When a blocking trust dialog is detected, clicks only the "Full command ..." button (narrowest trust scope). Never clicks "Base", "Partial", or "Trust command and accept". |
+
+**Detection logic:** A dialog is considered blocking when all three conditions are met:
+1. Zero candidates passed the safety filter (`passedCandidates.Count == 0`)
+2. At least one button has a trust label (prefix match: "Full command", "Base", "Partial", "Trust command and accept")
+3. No button has an execution label (exact match: "Accept", "Accept command", "Run", "Allow", "Approve", "Continue", "Yes")
+
+**Edge case examples:**
+- `[Full command, Base, Cancel]` → blocking. Cancel is not an execution label, trust labels are present, no execution labels exist.
+- `[Full command, Accept command]` → NOT blocking. "Accept command" is an execution label, so the normal flow handles it.
+- `[Cancel only]` → NOT blocking. No trust labels are present.
+
+**Safety guarantees when `"safe"` is enabled:**
+- Only "Full command ..." is ever clicked (exact-match trust, narrowest scope)
+- Never clicks "Base", "Partial", or "Trust command and accept"
+- Only acts on windows belonging to whitelisted processes
+- Respects the debounce cooldown to prevent rapid re-clicks
+- Never activates when execution buttons (Accept, Run, etc.) are present in the dialog
 
 ### `contextRequiredLabels`
 - Type: `string[]`
@@ -241,6 +270,20 @@ Regex patterns are validated at startup. Invalid patterns cause Click Run to exi
       "processName": "Claude",
       "windowTitles": [{ "pattern": "Claude", "matchMode": "contains" }],
       "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Trust"]
+    }
+  ]
+}
+```
+
+### Trust fallback enabled
+```json
+{
+  "trustFallbackMode": "safe",
+  "whitelist": [
+    {
+      "processName": "Kiro",
+      "windowTitles": [{ "pattern": "Kiro", "matchMode": "contains" }],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Accept command"]
     }
   ]
 }

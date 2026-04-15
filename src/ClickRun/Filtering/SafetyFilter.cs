@@ -133,32 +133,92 @@ public class SafetyFilter
 
     private static bool MatchesButtonLabel(string buttonLabel, List<string> allowedLabels, List<string> prefixMatchLabels)
     {
-        // Exact match
+        var normalized = NormalizeLabel(buttonLabel);
+
+        // 1. Exact match (normalized) — "Run" = "Run", "Accept command" = "Accept command"
         foreach (var label in allowedLabels)
         {
-            if (string.Equals(buttonLabel, label, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(normalized, NormalizeLabel(label), StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
         }
 
-        // Prefix match — for dynamic labels like "Full command python -m ..."
+        // 2. Prefix match ONLY for explicitly configured prefixes
+        //    "Full command python -m ..." starts with "Full command " → match
+        //    "Run Code (Ctrl+Alt+N)" does NOT match because "Run" is not in prefixMatchLabels
         foreach (var prefix in prefixMatchLabels)
         {
-            if (buttonLabel.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            var normalizedPrefix = NormalizeLabel(prefix);
+            if (StartsWithWord(normalized, normalizedPrefix))
             {
                 return true;
             }
         }
 
+        // NO contains fallback. NO word-boundary fallback.
+        // All valid labels must be in the whitelist as exact entries or in prefixMatchLabels.
         return false;
+    }
+
+    /// <summary>
+    /// Returns true if 'text' starts with 'prefix' at a word boundary.
+    /// The prefix must be at position 0 and followed by a space, end-of-string, or nothing.
+    /// "Trust command and accept".StartsWithWord("Trust") → true
+    /// "Do not trust this".StartsWithWord("Trust") → false
+    /// "Trustworthy".StartsWithWord("Trust") → false (no word boundary)
+    /// </summary>
+    private static bool StartsWithWord(string text, string prefix)
+    {
+        if (!text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        // Must be followed by space, end-of-string, or nothing
+        if (text.Length == prefix.Length)
+            return true;
+
+        return text[prefix.Length] == ' ';
+    }
+
+    /// <summary>
+    /// Normalizes a UI label by removing non-ASCII/corrupted unicode, trimming whitespace,
+    /// and collapsing multiple spaces. Keeps the label readable for matching.
+    /// </summary>
+    internal static string NormalizeLabel(string label)
+    {
+        if (string.IsNullOrEmpty(label))
+            return string.Empty;
+
+        // Remove non-ASCII characters (corrupted unicode like î©°, îª´, etc.)
+        var chars = new char[label.Length];
+        int pos = 0;
+        for (int i = 0; i < label.Length; i++)
+        {
+            char c = label[i];
+            if (c >= 0x20 && c < 0x7F) // printable ASCII only
+            {
+                chars[pos++] = c;
+            }
+            else if (c == '\t' || c == '\n' || c == '\r')
+            {
+                chars[pos++] = ' ';
+            }
+        }
+
+        // Trim and collapse multiple spaces
+        var result = new string(chars, 0, pos).Trim();
+        while (result.Contains("  "))
+            result = result.Replace("  ", " ");
+
+        return result;
     }
 
     private static bool IsBlocked(string buttonLabel, List<string> blockedLabels)
     {
+        var normalized = NormalizeLabel(buttonLabel);
         foreach (var blocked in blockedLabels)
         {
-            if (buttonLabel.Contains(blocked, StringComparison.OrdinalIgnoreCase))
+            if (normalized.Contains(NormalizeLabel(blocked), StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }

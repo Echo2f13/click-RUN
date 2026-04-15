@@ -20,6 +20,7 @@ public class Configuration
     public List<string> DangerousContextKeywords { get; set; } = new() { "Delete", "Remove", "Overwrite", "Reset", "Drop", "Erase", "Destroy" };
     public bool MultiWindowMode { get; set; } = false;
     public bool EnableKeyboardFallback { get; set; } = false;
-    public List<string> PrefixMatchLabels { get; set; } = new() { "Full command" };
+    public List<string> PrefixMatchLabels { get; set; } = new();
     public List<WhitelistEntry> Whitelist { get; set; } = new();
+    public TrustFallbackMode TrustFallbackMode { get; set; } = TrustFallbackMode.Off;
 }

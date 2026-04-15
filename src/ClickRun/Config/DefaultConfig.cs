@@ -10,7 +10,7 @@ public static class DefaultConfig
     private static readonly List<string> DefaultButtonLabels = new()
     {
         "Run", "Allow", "Approve", "Continue", "Yes", "Yes, allow all edits this session",
-        "Accept", "Accept command", "Trust", "Trust command and accept"
+        "Accept", "Accept command"
     };
 
     private static readonly List<string> DefaultBlockedLabels = new()

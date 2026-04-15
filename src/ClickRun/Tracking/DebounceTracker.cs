@@ -13,15 +13,27 @@ public sealed class DebounceTracker
 
     /// <summary>
     /// Computes a SHA256 hash of the element descriptor, truncated to 16 bytes (32 hex chars).
-    /// Format: processName|windowTitle|buttonLabel|automationId
+    /// Uses length-prefixed encoding to prevent delimiter collision attacks.
+    /// Format: {len}:{processName}{len}:{windowTitle}{len}:{buttonLabel}[{len}:{automationId}]
     /// </summary>
     public static string ComputeHash(ElementDescriptor element)
     {
-        var input = string.IsNullOrEmpty(element.AutomationId)
-            ? $"{element.ProcessName}|{element.WindowTitle}|{element.ButtonLabel}"
-            : $"{element.ProcessName}|{element.WindowTitle}|{element.ButtonLabel}|{element.AutomationId}";
-        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
+        var sb = new StringBuilder();
+        AppendLengthPrefixed(sb, element.ProcessName ?? "");
+        AppendLengthPrefixed(sb, element.WindowTitle ?? "");
+        AppendLengthPrefixed(sb, element.ButtonLabel ?? "");
+        if (!string.IsNullOrEmpty(element.AutomationId))
+            AppendLengthPrefixed(sb, element.AutomationId);
+
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString()));
         return Convert.ToHexString(hashBytes, 0, 16).ToLowerInvariant();
+    }
+
+    private static void AppendLengthPrefixed(StringBuilder sb, string value)
+    {
+        sb.Append(value.Length);
+        sb.Append(':');
+        sb.Append(value);
     }
 
     /// <summary>

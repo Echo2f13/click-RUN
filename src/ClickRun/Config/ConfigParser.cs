@@ -7,6 +7,39 @@ using Serilog;
 namespace ClickRun.Config;
 
 /// <summary>
+/// Strict JSON converter for TrustFallbackMode that only accepts
+/// the exact string values "off" and "safe" (case-sensitive).
+/// Rejects numeric values, PascalCase, and any other input.
+/// </summary>
+internal sealed class StrictTrustFallbackModeConverter : JsonConverter<TrustFallbackMode>
+{
+    public override TrustFallbackMode Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+            throw new JsonException($"Expected string for trustFallbackMode, got {reader.TokenType}.");
+
+        var value = reader.GetString();
+        return value switch
+        {
+            "off" => TrustFallbackMode.Off,
+            "safe" => TrustFallbackMode.Safe,
+            _ => throw new JsonException($"Invalid trustFallbackMode value '{value}'. Must be \"off\" or \"safe\".")
+        };
+    }
+
+    public override void Write(Utf8JsonWriter writer, TrustFallbackMode value, JsonSerializerOptions options)
+    {
+        var str = value switch
+        {
+            TrustFallbackMode.Off => "off",
+            TrustFallbackMode.Safe => "safe",
+            _ => throw new JsonException($"Unknown TrustFallbackMode value: {value}")
+        };
+        writer.WriteStringValue(str);
+    }
+}
+
+/// <summary>
 /// Loads and validates configuration from ~/.clickrun/config.json.
 /// </summary>
 public static class ConfigParser
@@ -22,6 +55,8 @@ public static class ConfigParser
             ReadCommentHandling = JsonCommentHandling.Skip,
             AllowTrailingCommas = true
         };
+        // Strict converter for TrustFallbackMode must be registered before the generic enum converter
+        options.Converters.Add(new StrictTrustFallbackModeConverter());
         options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
         return options;
     }

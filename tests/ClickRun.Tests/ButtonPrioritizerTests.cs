@@ -25,180 +25,156 @@ public class ButtonPrioritizerTests
     [Fact]
     public void SelectBest_EmptyList_ReturnsNull()
     {
-        var result = ButtonPrioritizer.SelectBest(new List<Candidate>(), new List<WhitelistEntry>());
-        Assert.Null(result);
+        Assert.Null(ButtonPrioritizer.SelectBest(new List<Candidate>(), new List<WhitelistEntry>()));
     }
 
     [Fact]
     public void SelectBest_NullList_ReturnsNull()
     {
-        var result = ButtonPrioritizer.SelectBest(null!, new List<WhitelistEntry>());
-        Assert.Null(result);
+        Assert.Null(ButtonPrioritizer.SelectBest(null!, new List<WhitelistEntry>()));
     }
 
     [Fact]
     public void SelectBest_SingleCandidate_ReturnsThatCandidate()
     {
-        var entry = MakeEntry("Run", "Cancel");
-        var candidate = MakeCandidate("Run", entry);
-
-        var result = ButtonPrioritizer.SelectBest(new List<Candidate> { candidate }, new List<WhitelistEntry> { entry });
-
-        Assert.Same(candidate, result);
-    }
-
-    [Fact]
-    public void SelectBest_ExactMatchBeatsSubstringMatch()
-    {
-        var entry = MakeEntry("Run", "Allow");
-        var exact = MakeCandidate("Run", entry, "h1");
-        var substring = MakeCandidate("Run Anyway", entry, "h2");
-
-        var result = ButtonPrioritizer.SelectBest(
-            new List<Candidate> { substring, exact },
-            new List<WhitelistEntry> { entry });
-
-        Assert.Same(exact, result);
-    }
-
-    [Fact]
-    public void SelectBest_TieBreaking_PrefersEarlierWhitelistLabel()
-    {
-        var entry = MakeEntry("Run", "Allow", "Continue");
-        var allowCandidate = MakeCandidate("Allow", entry, "h1");
-        var continueCandidate = MakeCandidate("Continue", entry, "h2");
-
-        var result = ButtonPrioritizer.SelectBest(
-            new List<Candidate> { continueCandidate, allowCandidate },
-            new List<WhitelistEntry> { entry });
-
-        // "Allow" is at index 1, "Continue" at index 2 — Allow wins
-        Assert.Same(allowCandidate, result);
-    }
-
-    [Fact]
-    public void SelectBest_ExactMatchIsCaseInsensitive()
-    {
-        var entry = MakeEntry("run");
-        var candidate = MakeCandidate("RUN", entry);
-
-        var result = ButtonPrioritizer.SelectBest(
-            new List<Candidate> { candidate },
-            new List<WhitelistEntry> { entry });
-
-        Assert.Same(candidate, result);
-    }
-
-    [Fact]
-    public void SelectBest_SubstringMatch_DetectedCorrectly()
-    {
         var entry = MakeEntry("Run");
-        var candidate = MakeCandidate("Run Anyway", entry);
-
-        var result = ButtonPrioritizer.SelectBest(
-            new List<Candidate> { candidate },
-            new List<WhitelistEntry> { entry });
-
-        Assert.Same(candidate, result);
+        var candidate = MakeCandidate("Run", entry);
+        Assert.Same(candidate, ButtonPrioritizer.SelectBest(new List<Candidate> { candidate }, new List<WhitelistEntry> { entry }));
     }
 
-    [Fact]
-    public void SelectBest_SubstringTieBreaking_PrefersEarlierLabel()
-    {
-        var entry = MakeEntry("Run", "Allow");
-        var runAnyway = MakeCandidate("Run Anyway", entry, "h1");
-        var allowAll = MakeCandidate("Allow All", entry, "h2");
-
-        var result = ButtonPrioritizer.SelectBest(
-            new List<Candidate> { allowAll, runAnyway },
-            new List<WhitelistEntry> { entry });
-
-        // Both are substring matches; "Run" is at index 0, "Allow" at index 1 — Run Anyway wins
-        Assert.Same(runAnyway, result);
-    }
+    // --- EXECUTION OVER TRUST ---
 
     [Fact]
-    public void SelectBest_KeywordPriority_RunBeatsAcceptAndTrust()
+    public void AcceptCommand_BeatsTrustCommandAndAccept()
     {
-        // Config order: Run(0), Accept(1), Trust(2)
-        var entry = MakeEntry("Run", "Accept", "Trust");
-        var run = MakeCandidate("Run", entry, "h1");
-        var accept = MakeCandidate("Accept command", entry, "h2");
-        var trust = MakeCandidate("Trust", entry, "h3");
-
-        var result = ButtonPrioritizer.SelectBest(
-            new List<Candidate> { trust, accept, run },
-            new List<WhitelistEntry> { entry });
-
-        // "Run" is index 0 — wins over Accept(1) and Trust(2)
-        Assert.Same(run, result);
-    }
-
-    [Fact]
-    public void SelectBest_KeywordPriority_AcceptBeatsTrust()
-    {
-        // Config order: Run(0), Accept(1), Trust(2)
-        var entry = MakeEntry("Run", "Accept", "Trust");
+        var entry = MakeEntry("Accept command", "Trust command and accept");
         var accept = MakeCandidate("Accept command", entry, "h1");
-        var trust = MakeCandidate("Trust", entry, "h2");
+        var trust = MakeCandidate("Trust command and accept", entry, "h2");
 
         var result = ButtonPrioritizer.SelectBest(
             new List<Candidate> { trust, accept },
             new List<WhitelistEntry> { entry });
 
-        // "Accept command" matches "Accept" at index 1 (substring)
-        // "Trust" matches "Trust" at index 2 (exact)
-        // Index 1 < index 2 → Accept command wins
         Assert.Same(accept, result);
     }
 
     [Fact]
-    public void SelectBest_TrustCommandAndAccept_ResolvesToAccept()
+    public void AcceptCommand_BeatsRun()
     {
-        // "Trust command and accept" contains both "Accept" and "Trust"
-        // Config order: Run(0), Accept(1), Trust(2)
-        // "Accept" is at index 1, "Trust" is at index 2
-        // Should resolve to index 1 (Accept) because it's earlier
-        var entry = MakeEntry("Run", "Accept", "Trust", "Trust command and accept");
-        var candidate = MakeCandidate("Trust command and accept", entry, "h1");
+        var entry = MakeEntry("Run", "Accept command");
+        var run = MakeCandidate("Run", entry, "h1");
+        var accept = MakeCandidate("Accept command", entry, "h2");
 
         var result = ButtonPrioritizer.SelectBest(
-            new List<Candidate> { candidate },
+            new List<Candidate> { run, accept },
             new List<WhitelistEntry> { entry });
 
-        // The candidate matches "Accept" (substring, index 1) which beats
-        // "Trust" (substring, index 2) and "Trust command and accept" (exact, index 3)
-        Assert.Same(candidate, result);
-        // Verify it resolved to the Accept keyword's index, not Trust's
+        Assert.Same(accept, result);
     }
 
     [Fact]
-    public void SelectBest_RunAnyway_ResolvesToRun()
+    public void AcceptCommand_BeatsFullCommand()
     {
-        var entry = MakeEntry("Run", "Accept", "Trust");
-        var candidate = MakeCandidate("Run anyway", entry, "h1");
+        var entry = MakeEntry("Accept command");
+        var accept = MakeCandidate("Accept command", entry, "h1");
+        var full = MakeCandidate("Full command python test.py", entry, "h2");
 
         var result = ButtonPrioritizer.SelectBest(
-            new List<Candidate> { candidate },
+            new List<Candidate> { full, accept },
             new List<WhitelistEntry> { entry });
 
-        // "Run anyway" contains "Run" at index 0 — highest priority keyword
-        Assert.Same(candidate, result);
+        Assert.Same(accept, result);
     }
 
     [Fact]
-    public void SelectBest_EarlierSubstringBeatsLaterExact()
+    public void Run_BeatsTrustCommandAndAccept()
     {
-        // Keyword priority order matters more than match type
-        var entry = MakeEntry("Run", "Accept", "Accept command");
-        var candidate = MakeCandidate("Accept command", entry, "h1");
+        var entry = MakeEntry("Run", "Trust command and accept");
+        var run = MakeCandidate("Run", entry, "h1");
+        var trust = MakeCandidate("Trust command and accept", entry, "h2");
 
         var result = ButtonPrioritizer.SelectBest(
-            new List<Candidate> { candidate },
+            new List<Candidate> { trust, run },
             new List<WhitelistEntry> { entry });
 
-        // "Accept command" has exact match at index 2, but substring match "Accept" at index 1
-        // Index 1 < index 2 → resolves to Accept's priority
-        Assert.Same(candidate, result);
+        Assert.Same(run, result);
+    }
+
+    [Fact]
+    public void Run_BeatsFullCommand()
+    {
+        var entry = MakeEntry("Run");
+        var run = MakeCandidate("Run", entry, "h1");
+        var full = MakeCandidate("Full command python test.py", entry, "h2");
+
+        var result = ButtonPrioritizer.SelectBest(
+            new List<Candidate> { full, run },
+            new List<WhitelistEntry> { entry });
+
+        Assert.Same(run, result);
+    }
+
+    [Fact]
+    public void AllThreePresent_AcceptCommandWins()
+    {
+        var entry = MakeEntry("Run", "Accept command", "Trust command and accept");
+        var run = MakeCandidate("Run", entry, "h1");
+        var accept = MakeCandidate("Accept command", entry, "h2");
+        var trust = MakeCandidate("Trust command and accept", entry, "h3");
+
+        var result = ButtonPrioritizer.SelectBest(
+            new List<Candidate> { run, trust, accept },
+            new List<WhitelistEntry> { entry });
+
+        Assert.Same(accept, result);
+    }
+
+    [Fact]
+    public void TrustOnly_TrustWins()
+    {
+        // Trust labels are no longer in default whitelist, but if user adds them they still work
+        var entry = MakeEntry("Trust command and accept");
+        var trust = MakeCandidate("Trust command and accept", entry);
+
+        Assert.Same(trust, ButtonPrioritizer.SelectBest(
+            new List<Candidate> { trust },
+            new List<WhitelistEntry> { entry }));
+    }
+
+    [Fact]
+    public void FullCommandOnly_FullCommandWins()
+    {
+        // Full command labels are no longer in default prefix list, but if present they still work
+        var entry = MakeEntry("Run");
+        var full = MakeCandidate("Full command python test.py", entry);
+
+        Assert.Same(full, ButtonPrioritizer.SelectBest(
+            new List<Candidate> { full },
+            new List<WhitelistEntry> { entry }));
+    }
+
+    [Fact]
+    public void Allow_BeatsRun()
+    {
+        var entry = MakeEntry("Run", "Allow");
+        var run = MakeCandidate("Run", entry, "h1");
+        var allow = MakeCandidate("Allow", entry, "h2");
+
+        var result = ButtonPrioritizer.SelectBest(
+            new List<Candidate> { run, allow },
+            new List<WhitelistEntry> { entry });
+
+        Assert.Same(allow, result);
+    }
+
+    [Fact]
+    public void CaseInsensitive()
+    {
+        var entry = MakeEntry("run");
+        var candidate = MakeCandidate("RUN", entry);
+
+        Assert.Same(candidate, ButtonPrioritizer.SelectBest(
+            new List<Candidate> { candidate },
+            new List<WhitelistEntry> { entry }));
     }
 }

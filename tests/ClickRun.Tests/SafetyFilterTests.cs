@@ -402,3 +402,169 @@ public class ContextBasedYesFilterTests
         Assert.Equal("dangerous_context", result.RejectionReason);
     }
 }
+
+public class LabelNormalizationTests
+{
+    [Theory]
+    [InlineData("Run", "Run")]
+    [InlineData("  Run  ", "Run")]
+    [InlineData("Run\t", "Run")]
+    public void NormalizeLabel_TrimsWhitespace(string input, string expected)
+    {
+        Assert.Equal(expected, SafetyFilter.NormalizeLabel(input));
+    }
+
+    [Fact]
+    public void NormalizeLabel_RemovesNonAscii()
+    {
+        var result = SafetyFilter.NormalizeLabel("Follow \u00EE\u00A9\u00B0");
+        Assert.Equal("Follow", result);
+    }
+
+    [Fact]
+    public void NormalizeLabel_CollapsesSpaces()
+    {
+        Assert.Equal("Trust command", SafetyFilter.NormalizeLabel("Trust  command"));
+    }
+
+    [Fact]
+    public void NormalizeLabel_EmptyString()
+    {
+        Assert.Equal(string.Empty, SafetyFilter.NormalizeLabel(""));
+        Assert.Equal(string.Empty, SafetyFilter.NormalizeLabel(null!));
+    }
+
+    [Fact]
+    public void NormalizeLabel_PreservesAscii()
+    {
+        Assert.Equal("Full command python -m src.test", SafetyFilter.NormalizeLabel("Full command python -m src.test"));
+    }
+}
+
+public class WordBoundaryMatchingTests
+{
+    private readonly SafetyFilter _filter;
+
+    public WordBoundaryMatchingTests()
+    {
+        _filter = new SafetyFilter(new LoggerConfiguration().CreateLogger());
+    }
+
+    private static Configuration MakeConfig(params string[] labels) => new()
+    {
+        PrefixMatchLabels = new List<string> { "Full command" },
+        Whitelist = new List<WhitelistEntry>
+        {
+            new()
+            {
+                ProcessName = "Kiro",
+                WindowTitles = new List<WindowTitlePattern>
+                {
+                    new() { Pattern = "Kiro", MatchMode = MatchMode.Contains }
+                },
+                ButtonLabels = labels.ToList()
+            }
+        }
+    };
+
+    private static ElementDescriptor El(string label) => new(
+        "Kiro", "test - Kiro", label, "", true, true, true);
+
+    // --- SHOULD MATCH ---
+
+    [Fact]
+    public void ExactMatch_Run()
+    {
+        var result = _filter.Check(El("Run"), MakeConfig("Run", "Trust", "Accept"));
+        Assert.True(result.Passed);
+    }
+
+    [Fact]
+    public void ExactMatch_Trust()
+    {
+        var result = _filter.Check(El("Trust"), MakeConfig("Run", "Trust", "Accept"));
+        Assert.True(result.Passed);
+    }
+
+    [Fact]
+    public void ExactMatch_TrustCommandAndAccept()
+    {
+        var result = _filter.Check(El("Trust command and accept"), MakeConfig("Run", "Trust", "Accept", "Trust command and accept"));
+        Assert.True(result.Passed);
+    }
+
+    [Fact]
+    public void ExactMatch_AcceptCommand()
+    {
+        var result = _filter.Check(El("Accept command"), MakeConfig("Run", "Trust", "Accept", "Accept command"));
+        Assert.True(result.Passed);
+    }
+
+    [Fact]
+    public void PrefixMatch_FullCommandDynamic()
+    {
+        var result = _filter.Check(El("Full command python -m src.test"), MakeConfig("Run"));
+        Assert.True(result.Passed);
+    }
+
+    [Fact]
+    public void ExactMatch_WithUnicodeNormalized()
+    {
+        var result = _filter.Check(El("Run\u00EE"), MakeConfig("Run"));
+        Assert.True(result.Passed);
+    }
+
+    // --- SHOULD NOT MATCH ---
+
+    [Fact]
+    public void NoMatch_RunCodeExtension()
+    {
+        // CRITICAL: "Run Code (Ctrl+Alt+N)" must NOT match "Run"
+        var result = _filter.Check(El("Run Code (Ctrl+Alt+N)"), MakeConfig("Run", "Trust", "Accept"));
+        Assert.False(result.Passed);
+        Assert.Equal("label_mismatch", result.RejectionReason);
+    }
+
+    [Fact]
+    public void NoMatch_DoNotAcceptThis()
+    {
+        var result = _filter.Check(El("Do not accept this"), MakeConfig("Run", "Trust", "Accept"));
+        Assert.False(result.Passed);
+    }
+
+    [Fact]
+    public void NoMatch_Trustworthy()
+    {
+        var result = _filter.Check(El("Trustworthy"), MakeConfig("Run", "Trust", "Accept"));
+        Assert.False(result.Passed);
+    }
+
+    [Fact]
+    public void NoMatch_Running()
+    {
+        var result = _filter.Check(El("Running"), MakeConfig("Run", "Trust", "Accept"));
+        Assert.False(result.Passed);
+    }
+
+    [Fact]
+    public void NoMatch_Acceptable()
+    {
+        var result = _filter.Check(El("Acceptable"), MakeConfig("Run", "Trust", "Accept"));
+        Assert.False(result.Passed);
+    }
+
+    [Fact]
+    public void NoMatch_RandomLabel()
+    {
+        var result = _filter.Check(El("Settings"), MakeConfig("Run", "Trust", "Accept"));
+        Assert.False(result.Passed);
+    }
+
+    [Fact]
+    public void NoMatch_TrustCommandWithoutExactEntry()
+    {
+        // "Trust command and accept" should NOT match if only "Trust" is in whitelist (no word-boundary fallback)
+        var result = _filter.Check(El("Trust command and accept"), MakeConfig("Run", "Trust", "Accept"));
+        Assert.False(result.Passed);
+    }
+}

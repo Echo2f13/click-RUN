@@ -3,89 +3,77 @@ using ClickRun.Models;
 namespace ClickRun.Filtering;
 
 /// <summary>
-/// Ranks candidate buttons by label match quality and selects the single best candidate.
+/// Selects the single best candidate button using intent-based priority.
 /// 
-/// Ranking strategy (strict keyword priority):
-///   1. Whitelist label index is the PRIMARY ranking — earlier labels in the list are higher priority.
-///      Config order defines keyword priority: Run(0) > Allow(1) > Accept(5) > Trust(7) etc.
-///   2. Match type is the SECONDARY ranking — exact match beats substring match at the same index.
-///
-/// Examples with config order [Run, Allow, Approve, Continue, Yes, Accept, ..., Trust, ...]:
-///   - "Run" (exact, index 0) beats "Accept command" (exact, index 6)
-///   - "Trust command and accept" resolves to "Accept" (substring, index 5) not "Trust command and accept" (exact, index 8)
-///   - "Run anyway" resolves to "Run" (substring, index 0)
+/// Strategy: PREFER EXECUTION over PERMANENT TRUST.
+/// "Accept command" wins over "Trust command and accept" so commands
+/// execute without being permanently added to the trust list.
+/// 
+/// Priority (highest to lowest):
+///   1. "accept command"                  — approve execution without permanent trust (weight 100)
+///   2. "accept"                          — accept action (weight 90)
+///   3. "allow"                           — allow action (weight 80)
+///   4. "approve"                         — approve action (weight 70)
+///   5. "yes, allow all edits this session" — session permission (weight 65)
+///   6. "yes"                             — confirmation (weight 60)
+///   7. "continue"                        — continue action (weight 50)
+///   8. "run"                             — temporary execution (weight 40)
+///   9. "trust command and accept"        — permanent trust (weight 30, demoted)
+///  10. "trust"                           — trust action (weight 20, demoted)
+///  11. "full command ..."                — trust variation (weight 10, demoted)
+///  12. everything else                   — fallback (weight 1)
 /// </summary>
 public static class ButtonPrioritizer
 {
+    private static readonly Dictionary<string, int> IntentWeights = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Execution actions — these run commands without permanent trust
+        ["accept command"] = 100,
+        ["accept"] = 90,
+        ["allow"] = 80,
+        ["approve"] = 70,
+        ["yes, allow all edits this session"] = 65,
+        ["yes"] = 60,
+        ["continue"] = 50,
+        ["run"] = 40,
+
+        // Trust actions — NOT included by default.
+        // If user explicitly adds them to whitelist, they get lowest priority.
+    };
+
     /// <summary>
     /// Selects the single highest-priority candidate from the list.
-    /// Primary: earliest whitelist label index wins (keyword priority order).
-    /// Secondary: exact match beats substring match at the same label index.
+    /// Prefers execution actions over permanent trust actions.
     /// </summary>
     public static Candidate? SelectBest(List<Candidate> candidates, List<WhitelistEntry> whitelist)
     {
         if (candidates is null || candidates.Count == 0)
-        {
             return null;
-        }
 
         Candidate? best = null;
-        int bestLabelIndex = int.MaxValue;
-        int bestMatchType = int.MaxValue;
+        int bestWeight = -1;
 
         foreach (var candidate in candidates)
         {
-            var (labelIndex, matchType) = ComputeRank(candidate);
-
-            // Primary: lower label index wins (keyword priority)
-            // Secondary: lower match type wins (0=exact, 1=substring)
-            if (labelIndex < bestLabelIndex
-                || (labelIndex == bestLabelIndex && matchType < bestMatchType))
+            var weight = ComputeWeight(candidate);
+            if (weight > bestWeight)
             {
                 best = candidate;
-                bestLabelIndex = labelIndex;
-                bestMatchType = matchType;
+                bestWeight = weight;
             }
         }
 
         return best;
     }
 
-    /// <summary>
-    /// Computes the rank for a candidate.
-    /// Returns (bestLabelIndex, matchType) where:
-    ///   - bestLabelIndex = earliest whitelist label that matches (exact or substring)
-    ///   - matchType = 0 for exact, 1 for substring
-    /// Scans all labels to find the earliest match of any type.
-    /// </summary>
-    private static (int LabelIndex, int MatchType) ComputeRank(Candidate candidate)
+    private static int ComputeWeight(Candidate candidate)
     {
-        var buttonLabel = candidate.Element.ButtonLabel;
-        var labels = candidate.MatchedEntry.ButtonLabels;
+        var label = SafetyFilter.NormalizeLabel(candidate.Element.ButtonLabel).ToLowerInvariant();
 
-        int bestIndex = int.MaxValue;
-        int bestType = int.MaxValue;
+        // Exact match against intent weights
+        if (IntentWeights.TryGetValue(label, out var exactWeight))
+            return exactWeight;
 
-        for (int i = 0; i < labels.Count; i++)
-        {
-            // Stop early — can't beat an earlier index
-            if (i >= bestIndex)
-                break;
-
-            if (string.Equals(buttonLabel, labels[i], StringComparison.OrdinalIgnoreCase))
-            {
-                // Exact match at this index — best possible for this index
-                bestIndex = i;
-                bestType = 0;
-            }
-            else if (buttonLabel.Contains(labels[i], StringComparison.OrdinalIgnoreCase))
-            {
-                // Substring match at this index
-                bestIndex = i;
-                bestType = 1;
-            }
-        }
-
-        return (bestIndex, bestType);
+        return 1;
     }
 }

@@ -25,6 +25,8 @@ public sealed class ClickRunEngine : IDisposable
     private readonly DebounceTracker _debounceTracker;
     private readonly Clicker _clicker;
     private readonly KeyboardFallback _keyboardFallback;
+    private readonly TrustDialogDetector _trustDetector;
+    private readonly TrustFallbackHandler _trustFallbackHandler;
     private readonly TimeSpan _debounceCooldown;
     private readonly HashSet<string>? _whitelistedProcesses;
 
@@ -32,6 +34,23 @@ public sealed class ClickRunEngine : IDisposable
     private Task? _runTask;
     private volatile bool _paused;
     private readonly Dictionary<string, DateTime> _firstSeen = new();
+    private List<ScanResult>? _currentScanResults;
+
+    private AutomationElement? LookupElement(ElementDescriptor descriptor)
+    {
+        if (_currentScanResults == null) return null;
+        foreach (var scan in _currentScanResults)
+        {
+            foreach (var (desc, element) in scan.Buttons)
+            {
+                if (desc == descriptor) return element;
+                // Fallback: match by hash
+                if (DebounceTracker.ComputeHash(desc) == DebounceTracker.ComputeHash(descriptor))
+                    return element;
+            }
+        }
+        return null;
+    }
 
     public bool IsRunning => _runTask is { IsCompleted: false };
     public bool IsPaused => _paused;
@@ -47,6 +66,12 @@ public sealed class ClickRunEngine : IDisposable
         _clicker = new Clicker(logger);
         _keyboardFallback = new KeyboardFallback(logger);
         _debounceCooldown = TimeSpan.FromMilliseconds(config.DebounceCooldownMs);
+        _trustDetector = new TrustDialogDetector(logger);
+        // Trust fallback uses AutomationClickExecutor that looks up elements from scan results.
+        // The lookup function is set per-cycle in RunLoop via _currentScanButtons.
+        _trustFallbackHandler = new TrustFallbackHandler(logger,
+            new AutomationClickExecutor(_clicker, desc => LookupElement(desc)),
+            _debounceTracker, _debounceCooldown);
 
         if (config.MultiWindowMode)
         {
@@ -206,6 +231,22 @@ public sealed class ClickRunEngine : IDisposable
                             }
                         }
                     }
+                }
+
+                // Trust dialog fallback (runs after keyboard fallback fails or is disabled)
+                if (clicked == 0 && _config.TrustFallbackMode == TrustFallbackMode.Safe)
+                {
+                    _currentScanResults = scanResults;
+                    foreach (var scanResult in scanResults)
+                    {
+                        var detection = _trustDetector.Detect(scanResult, candidates);
+                        if (_trustFallbackHandler.TryFallback(detection, scanResult, _config, _config.DryRun))
+                        {
+                            clicked = 1;
+                            break; // Only one fallback click per cycle
+                        }
+                    }
+                    _currentScanResults = null;
                 }
 
                 LogSummary(totalScanCount, candidates.Count, rejectCount, rejectionCounters, clicked);
