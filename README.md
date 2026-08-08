@@ -27,6 +27,7 @@ Every 500ms:
   → Filter: blocklist ✓ process ✓ title ✓ label ✓ context ✓ visible ✓ enabled ✓
   → Prioritize by keyword order: Run > Allow > Accept > Trust > Yes (context-checked)
   → Click via InvokePattern.Invoke() (with retry)
+  → Restore focus to previously active window (prevents focus stealing)
   → Fallback: send numbered key for Electron/webview panels
   → Debounce: record hash, prevent re-click for 2s
 ```
@@ -54,7 +55,7 @@ Right-click the tray icon for:
 7. **Keyword priority** — Run > Accept > Trust > Yes; picks the safest match
 8. **Debounce** — prevents re-clicking the same button (2s cooldown)
 
-Plus: **kill switch** (`Ctrl+Alt+R`), **dry-run mode**, **debug instrumentation**, and **single-instance guard**.
+Plus: **kill switch** (`Ctrl+Alt+R`), **focus restoration** (prevents target apps from stealing focus), **dry-run mode**, **debug instrumentation**, and **single-instance guard**.
 
 ## Config
 

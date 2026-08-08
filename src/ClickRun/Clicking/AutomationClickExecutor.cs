@@ -18,12 +18,16 @@ public sealed class AutomationClickExecutor : IClickExecutor
         _elementLookup = elementLookup;
     }
 
-    public ClickResult Click(ElementDescriptor descriptor, int preClickDelayMs = 0)
+    public ClickResult Click(
+        ElementDescriptor descriptor,
+        int preClickDelayMs = 0,
+        bool restoreFocus = true,
+        int focusRestoreDelayMs = 50)
     {
         var element = _elementLookup(descriptor);
         if (element == null)
             return new ClickResult(false, $"AutomationElement not found for: {descriptor.ButtonLabel}");
 
-        return _clicker.Click(element, descriptor, preClickDelayMs);
+        return _clicker.Click(element, descriptor, preClickDelayMs, restoreFocus, focusRestoreDelayMs);
     }
 }

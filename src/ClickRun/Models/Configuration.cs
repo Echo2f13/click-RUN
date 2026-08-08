@@ -23,4 +23,18 @@ public class Configuration
     public List<string> PrefixMatchLabels { get; set; } = new();
     public List<WhitelistEntry> Whitelist { get; set; } = new();
     public TrustFallbackMode TrustFallbackMode { get; set; } = TrustFallbackMode.Off;
+
+    /// <summary>
+    /// When true, restores focus to the previously active window after clicking a button.
+    /// This prevents target applications (like Kiro) from stealing focus.
+    /// Default: true
+    /// </summary>
+    public bool RestoreFocusAfterClick { get; set; } = true;
+
+    /// <summary>
+    /// Delay in milliseconds before restoring focus after a click.
+    /// Allows the target application to process the click before focus is restored.
+    /// Default: 50ms
+    /// </summary>
+    public int FocusRestoreDelayMs { get; set; } = 50;
 }

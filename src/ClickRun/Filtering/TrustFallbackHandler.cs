@@ -144,7 +144,11 @@ public sealed class TrustFallbackHandler
             return true;
         }
 
-        var clickResult = _clickExecutor.Click(detection.FullCommandDescriptor, config.PreClickDelayMs);
+        var clickResult = _clickExecutor.Click(
+            detection.FullCommandDescriptor,
+            config.PreClickDelayMs,
+            config.RestoreFocusAfterClick,
+            config.FocusRestoreDelayMs);
 
         if (clickResult.Success)
         {

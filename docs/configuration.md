@@ -14,6 +14,8 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
   "enableDebugInstrumentation": false,
   "dryRun": false,
   "preClickDelayMs": 0,
+  "restoreFocusAfterClick": true,
+  "focusRestoreDelayMs": 50,
   "blockedLabels": ["Reject", "Cancel", "Deny"],
   "contextRequiredLabels": ["Yes"],
   "safeContextKeywords": ["Allow write", "Allow access", "Permission", "Grant", "Make this edit", "apply edit", "run command", "execute"],
@@ -91,6 +93,17 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
 - Default: `0`
 - Valid range: `0` – `200`
 - Milliseconds to wait before clicking a detected button. Helps prevent race conditions with UI rendering in some applications. Set to `0` for no delay.
+
+### `restoreFocusAfterClick`
+- Type: `bool`
+- Default: `true`
+- When `true`, Click Run saves the current foreground window before clicking and restores focus to it after the click completes. This prevents target applications (like Kiro, VS Code) from stealing focus when buttons are clicked programmatically. When `false`, the target application may become the active window after a click.
+
+### `focusRestoreDelayMs`
+- Type: `int`
+- Default: `50`
+- Valid range: `0` – `500`
+- Milliseconds to wait after clicking before restoring focus to the previous window. This delay allows the target application to process the click event before focus is restored. Only used when `restoreFocusAfterClick` is `true`. Increase this value if focus restoration happens too quickly and interferes with the click action.
 
 ### `blockedLabels`
 - Type: `string[]`

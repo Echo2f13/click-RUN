@@ -315,7 +315,12 @@ public sealed class ClickRunEngine : IDisposable
 
                 if (bestElement is not null)
                 {
-                    var clickResult = _clicker.Click(bestElement, best.Element, _config.PreClickDelayMs);
+                    var clickResult = _clicker.Click(
+                        bestElement,
+                        best.Element,
+                        _config.PreClickDelayMs,
+                        _config.RestoreFocusAfterClick,
+                        _config.FocusRestoreDelayMs);
                     if (clickResult.Success)
                     {
                         _debounceTracker.Record(best.Hash);

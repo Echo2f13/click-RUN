@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.3.0
+
+### Focus Restoration (Issue #1 Fix)
+- **Breaking behavioral change**: Click Run now restores focus to the previously active window after clicking buttons
+- Prevents target applications (Kiro, VS Code, Claude) from stealing focus when buttons are clicked
+- Uses Win32 `GetForegroundWindow` / `SetForegroundWindow` with thread input attachment for reliable focus restoration
+- New config options:
+  - `restoreFocusAfterClick` (default: `true`) — enables focus restoration
+  - `focusRestoreDelayMs` (default: `50`) — delay before restoring focus to let target app process click
+- Users can disable focus restoration by setting `"restoreFocusAfterClick": false` if needed for specific workflows
+
+### Technical Changes
+- Added P/Invoke declarations for `GetForegroundWindow`, `SetForegroundWindow`, `AttachThreadInput`, `GetWindowThreadProcessId`, `GetCurrentThreadId` to `Clicker.cs`
+- Extended `IClickExecutor.Click()` signature with `restoreFocus` and `focusRestoreDelayMs` parameters
+- Updated `AutomationClickExecutor` and `TrustFallbackHandler` to pass focus restoration parameters
+- Updated documentation in `configuration.md` and `README.md`
+
 ## v1.2.0
 
 ### Trust Dialog Fallback
