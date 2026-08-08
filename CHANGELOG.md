@@ -11,10 +11,16 @@
   - `focusRestoreDelayMs` (default: `50`) — delay before restoring focus to let target app process click
 - Users can disable focus restoration by setting `"restoreFocusAfterClick": false` if needed for specific workflows
 
+### Tray Menu Usability (Issue #2 Fix)
+- Engine automatically pauses while tray menu is open, ensuring user can always interact with controls
+- Tray tooltip now shows kill switch hotkey: "Click Run v1.3.0 — Running (Ctrl+Alt+R)"
+- Previous pause state is preserved — if engine was paused before opening menu, it stays paused after closing
+
 ### Technical Changes
 - Added P/Invoke declarations for `GetForegroundWindow`, `SetForegroundWindow`, `AttachThreadInput`, `GetWindowThreadProcessId`, `GetCurrentThreadId` to `Clicker.cs`
 - Extended `IClickExecutor.Click()` signature with `restoreFocus` and `focusRestoreDelayMs` parameters
 - Updated `AutomationClickExecutor` and `TrustFallbackHandler` to pass focus restoration parameters
+- Added `menu.Opening` / `menu.Closed` event handlers in `TrayApp.cs` for pause-on-menu-open behavior
 - Updated documentation in `configuration.md` and `README.md`
 
 ## v1.2.0

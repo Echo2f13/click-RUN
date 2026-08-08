@@ -20,13 +20,16 @@ public sealed class TrayApp : ApplicationContext
     private readonly NotifyIcon _trayIcon;
     private readonly ClickRunEngine _engine;
     private readonly ILogger _logger;
+    private readonly Configuration _config;
     private readonly ToolStripMenuItem _statusItem;
     private readonly ToolStripMenuItem _pauseItem;
     private readonly ToolStripMenuItem _autoStartItem;
     private readonly string _logFilePath;
+    private bool _wasPausedBeforeMenuOpen;
 
     public TrayApp(Configuration config, ILogger logger)
     {
+        _config = config;
         _logger = logger;
         _logFilePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
@@ -53,10 +56,17 @@ public sealed class TrayApp : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Exit", null, OnExit));
 
+        // Pause scanning when menu is open to ensure user can interact with it
+        menu.Opening += OnMenuOpening;
+        menu.Closed += OnMenuClosed;
+
+        // Format tooltip with kill switch hotkey for visibility
+        var tooltipText = FormatTooltip("Running");
+
         _trayIcon = new NotifyIcon
         {
             Icon = LoadIcon(),
-            Text = $"Click Run v{AppVersion} — Running",
+            Text = tooltipText,
             ContextMenuStrip = menu,
             Visible = true
         };
@@ -65,6 +75,39 @@ public sealed class TrayApp : ApplicationContext
 
         // Start the engine
         _engine.Start();
+    }
+
+    /// <summary>
+    /// Formats the tray tooltip to include version, status, and kill switch hotkey.
+    /// Note: Windows limits tooltip text to 63 characters, so we keep it concise.
+    /// </summary>
+    private string FormatTooltip(string status)
+    {
+        // "Click Run v1.3.0 — Running (Ctrl+Alt+R)" = ~42 chars, safe under 63 limit
+        return $"Click Run v{AppVersion} — {status} ({_config.KillSwitchHotkey})";
+    }
+
+    private void OnMenuOpening(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        // Save current pause state and pause the engine while menu is open
+        // This ensures the user can interact with the menu without focus stealing
+        _wasPausedBeforeMenuOpen = _engine.IsPaused;
+        if (!_wasPausedBeforeMenuOpen)
+        {
+            _engine.Pause();
+            _logger.Debug("Engine paused while tray menu is open");
+        }
+    }
+
+    private void OnMenuClosed(object? sender, ToolStripDropDownClosedEventArgs e)
+    {
+        // Restore previous pause state when menu closes
+        // Only resume if the engine wasn't already paused before opening
+        if (!_wasPausedBeforeMenuOpen && _engine.IsPaused)
+        {
+            _engine.Resume();
+            _logger.Debug("Engine resumed after tray menu closed");
+        }
     }
 
     private static Icon LoadIcon()
@@ -88,13 +131,13 @@ public sealed class TrayApp : ApplicationContext
         {
             _statusItem.Text = $"Click Run v{AppVersion} — Paused";
             _pauseItem.Text = "Resume";
-            _trayIcon.Text = $"Click Run v{AppVersion} — Paused";
+            _trayIcon.Text = FormatTooltip("Paused");
         }
         else
         {
             _statusItem.Text = $"Click Run v{AppVersion} — Running";
             _pauseItem.Text = "Pause";
-            _trayIcon.Text = $"Click Run v{AppVersion} — Running";
+            _trayIcon.Text = FormatTooltip("Running");
         }
     }
 
