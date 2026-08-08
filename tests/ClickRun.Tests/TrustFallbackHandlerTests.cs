@@ -17,7 +17,11 @@ internal sealed class MockClickExecutor : IClickExecutor
     public List<string> ClickedLabels { get; } = new();
     public bool ShouldSucceed { get; set; } = true;
 
-    public ClickResult Click(ElementDescriptor descriptor, int preClickDelayMs = 0)
+    public ClickResult Click(
+        ElementDescriptor descriptor,
+        int preClickDelayMs = 0,
+        bool restoreFocus = true,
+        int focusRestoreDelayMs = 50)
     {
         ClickedLabels.Add(descriptor.ButtonLabel);
         return ShouldSucceed

@@ -74,6 +74,17 @@ public static class ButtonPrioritizer
         if (IntentWeights.TryGetValue(label, out var exactWeight))
             return exactWeight;
 
+        // Trust dialog variations - prioritize broader patterns over full command
+        // "Base # *" trusts the base command with wildcards (fewer future prompts)
+        // "Partial # ..." trusts partial command patterns
+        // "Full command ..." trusts only the exact command (more future prompts)
+        if (label.StartsWith("base"))
+            return 15;  // Higher priority - trusts broader pattern
+        if (label.StartsWith("partial"))
+            return 12;  // Medium priority
+        if (label.StartsWith("full command"))
+            return 10;  // Lower priority - only trusts exact command
+
         return 1;
     }
 }

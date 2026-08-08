@@ -171,12 +171,26 @@ public sealed class Detector
 
             var windowTitle = rootElement.Current.Name ?? string.Empty;
 
-            var condition = new AndCondition(
+            // Scan for multiple control types that might be clickable in Electron apps
+            // Button is primary, but also check Hyperlink, ListItem, and MenuItem which Kiro uses for dialogs
+            var buttonCondition = new AndCondition(
                 new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button),
                 new PropertyCondition(AutomationElement.IsEnabledProperty, true),
                 new PropertyCondition(AutomationElement.IsOffscreenProperty, false));
 
-            var elements = rootElement.FindAll(TreeScope.Descendants, condition);
+            var hyperlinkCondition = new AndCondition(
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Hyperlink),
+                new PropertyCondition(AutomationElement.IsEnabledProperty, true),
+                new PropertyCondition(AutomationElement.IsOffscreenProperty, false));
+
+            var listItemCondition = new AndCondition(
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem),
+                new PropertyCondition(AutomationElement.IsEnabledProperty, true),
+                new PropertyCondition(AutomationElement.IsOffscreenProperty, false));
+
+            var combinedCondition = new OrCondition(buttonCondition, hyperlinkCondition, listItemCondition);
+
+            var elements = rootElement.FindAll(TreeScope.Descendants, combinedCondition);
 
             var buttons = new List<(ElementDescriptor, AutomationElement)>();
 
@@ -187,12 +201,35 @@ public sealed class Detector
                     // Extract context text from the UI tree around this button
                     var contextText = ContextExtractor.Extract(element, rootElement, _log);
 
+                    // Check if the element supports InvokePattern (clickable)
+                    var controlType = element.Current.ControlType;
+                    var isButtonLike = controlType == ControlType.Button ||
+                                       controlType == ControlType.Hyperlink ||
+                                       controlType == ControlType.ListItem;
+
+                    // Only include elements that support InvokePattern
+                    bool supportsInvoke = false;
+                    try
+                    {
+                        supportsInvoke = element.GetCurrentPattern(InvokePattern.Pattern) != null;
+                    }
+                    catch
+                    {
+                        // Pattern not supported
+                    }
+
+                    // Skip non-invokable elements unless they're buttons
+                    if (!supportsInvoke && controlType != ControlType.Button)
+                    {
+                        continue;
+                    }
+
                     var descriptor = new ElementDescriptor(
                         ProcessName: processName,
                         WindowTitle: windowTitle,
                         ButtonLabel: element.Current.Name ?? string.Empty,
                         AutomationId: element.Current.AutomationId ?? string.Empty,
-                        IsButton: true,
+                        IsButton: isButtonLike || supportsInvoke,
                         IsVisible: !element.Current.IsOffscreen,
                         IsEnabled: element.Current.IsEnabled,
                         ContextText: contextText);
