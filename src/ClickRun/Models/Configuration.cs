@@ -37,4 +37,12 @@ public class Configuration
     /// Default: 50ms
     /// </summary>
     public int FocusRestoreDelayMs { get; set; } = 50;
+
+    /// <summary>
+    /// When true, excludes AutomationId from the button hash computation.
+    /// This can help with Electron apps where AutomationIds change between renders.
+    /// When false (default), AutomationId is included in the hash for precise identification.
+    /// Default: false
+    /// </summary>
+    public bool ExcludeAutomationIdFromHash { get; set; } = false;
 }

@@ -16,13 +16,16 @@ public sealed class DebounceTracker
     /// Uses length-prefixed encoding to prevent delimiter collision attacks.
     /// Format: {len}:{processName}{len}:{windowTitle}{len}:{buttonLabel}[{len}:{automationId}]
     /// </summary>
-    public static string ComputeHash(ElementDescriptor element)
+    /// <param name="element">The element descriptor to hash.</param>
+    /// <param name="excludeAutomationId">When true, excludes AutomationId from the hash. 
+    /// This helps with Electron apps where AutomationIds change between renders.</param>
+    public static string ComputeHash(ElementDescriptor element, bool excludeAutomationId = false)
     {
         var sb = new StringBuilder();
         AppendLengthPrefixed(sb, element.ProcessName ?? "");
         AppendLengthPrefixed(sb, element.WindowTitle ?? "");
         AppendLengthPrefixed(sb, element.ButtonLabel ?? "");
-        if (!string.IsNullOrEmpty(element.AutomationId))
+        if (!excludeAutomationId && !string.IsNullOrEmpty(element.AutomationId))
             AppendLengthPrefixed(sb, element.AutomationId);
 
         var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString()));

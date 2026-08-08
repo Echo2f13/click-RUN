@@ -16,6 +16,7 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
   "preClickDelayMs": 0,
   "restoreFocusAfterClick": true,
   "focusRestoreDelayMs": 50,
+  "excludeAutomationIdFromHash": false,
   "blockedLabels": ["Reject", "Cancel", "Deny"],
   "contextRequiredLabels": ["Yes"],
   "safeContextKeywords": ["Allow write", "Allow access", "Permission", "Grant", "Make this edit", "apply edit", "run command", "execute"],
@@ -104,6 +105,11 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
 - Default: `50`
 - Valid range: `0` – `500`
 - Milliseconds to wait after clicking before restoring focus to the previous window. This delay allows the target application to process the click event before focus is restored. Only used when `restoreFocusAfterClick` is `true`. Increase this value if focus restoration happens too quickly and interferes with the click action.
+
+### `excludeAutomationIdFromHash`
+- Type: `bool`
+- Default: `false`
+- When `true`, excludes the UI Automation `AutomationId` property from the button hash computation. This can help with Electron-based applications (like Kiro) where `AutomationId` changes between UI renders, causing the first-seen delay to repeatedly treat the same button as "new". When `false` (default), `AutomationId` is included for more precise button identification. Enable this if you notice the first button detection behaving inconsistently or if buttons are being re-detected as new between scan cycles.
 
 ### `blockedLabels`
 - Type: `string[]`

@@ -44,8 +44,9 @@ public sealed class ClickRunEngine : IDisposable
             foreach (var (desc, element) in scan.Buttons)
             {
                 if (desc == descriptor) return element;
-                // Fallback: match by hash
-                if (DebounceTracker.ComputeHash(desc) == DebounceTracker.ComputeHash(descriptor))
+                // Fallback: match by hash (using config setting for consistency)
+                if (DebounceTracker.ComputeHash(desc, _config.ExcludeAutomationIdFromHash) == 
+                    DebounceTracker.ComputeHash(descriptor, _config.ExcludeAutomationIdFromHash))
                     return element;
             }
         }
@@ -178,7 +179,7 @@ public sealed class ClickRunEngine : IDisposable
                         continue;
                     }
 
-                    var hash = DebounceTracker.ComputeHash(descriptor);
+                    var hash = DebounceTracker.ComputeHash(descriptor, _config.ExcludeAutomationIdFromHash);
                     if (_debounceTracker.IsInCooldown(hash, _debounceCooldown))
                     {
                         rejectionCounters["debounce_cooldown"]++;
@@ -268,8 +269,17 @@ public sealed class ClickRunEngine : IDisposable
                 if (!_firstSeen.TryGetValue(best.Hash, out var firstSeenTime))
                 {
                     _firstSeen[best.Hash] = DateTime.UtcNow;
-                    _logger.Debug("FirstSeen: New button detected, waiting {DelayMs}ms — {Label}",
-                        _config.FirstSeenDelayMs, best.Element.ButtonLabel);
+                    // Enhanced logging for Issue #3 debugging
+                    if (debugInstrumentation)
+                    {
+                        _logger.Debug("FirstSeen: NEW button — Hash={Hash} | Label={Label} | AutomationId={AutomationId} | TrackedButtons={TrackedCount}",
+                            best.Hash, best.Element.ButtonLabel, best.Element.AutomationId, _firstSeen.Count);
+                    }
+                    else
+                    {
+                        _logger.Debug("FirstSeen: New button detected, waiting {DelayMs}ms — {Label}",
+                            _config.FirstSeenDelayMs, best.Element.ButtonLabel);
+                    }
                     LogSummary(totalScanCount, candidates.Count, rejectCount, rejectionCounters, clicked);
                     _debounceTracker.Prune();
                     PruneFirstSeen();
@@ -279,14 +289,27 @@ public sealed class ClickRunEngine : IDisposable
                 var elapsed = (DateTime.UtcNow - firstSeenTime).TotalMilliseconds;
                 if (elapsed < _config.FirstSeenDelayMs)
                 {
-                    _logger.Debug("FirstSeen: Waiting {Remaining}ms more — {Label}",
-                        (int)(_config.FirstSeenDelayMs - elapsed), best.Element.ButtonLabel);
+                    if (debugInstrumentation)
+                    {
+                        _logger.Debug("FirstSeen: WAITING — Hash={Hash} | Label={Label} | Elapsed={Elapsed}ms | Remaining={Remaining}ms",
+                            best.Hash, best.Element.ButtonLabel, (int)elapsed, (int)(_config.FirstSeenDelayMs - elapsed));
+                    }
+                    else
+                    {
+                        _logger.Debug("FirstSeen: Waiting {Remaining}ms more — {Label}",
+                            (int)(_config.FirstSeenDelayMs - elapsed), best.Element.ButtonLabel);
+                    }
                     LogSummary(totalScanCount, candidates.Count, rejectCount, rejectionCounters, clicked);
                     _debounceTracker.Prune();
                     continue;
                 }
 
                 // Delay satisfied — remove from first-seen tracker and proceed to click
+                if (debugInstrumentation)
+                {
+                    _logger.Debug("FirstSeen: READY — Hash={Hash} | Label={Label} | WaitedMs={Elapsed}",
+                        best.Hash, best.Element.ButtonLabel, (int)elapsed);
+                }
                 _firstSeen.Remove(best.Hash);
             }
 
@@ -306,7 +329,7 @@ public sealed class ClickRunEngine : IDisposable
                     {
                         foreach (var (descriptor, automationElement) in source.Buttons)
                         {
-                            if (DebounceTracker.ComputeHash(descriptor) == best.Hash)
+                            if (DebounceTracker.ComputeHash(descriptor, _config.ExcludeAutomationIdFromHash) == best.Hash)
                             { bestElement = automationElement; break; }
                         }
                         break;

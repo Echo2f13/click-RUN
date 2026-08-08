@@ -16,11 +16,19 @@
 - Tray tooltip now shows kill switch hotkey: "Click Run v1.3.0 — Running (Ctrl+Alt+R)"
 - Previous pause state is preserved — if engine was paused before opening menu, it stays paused after closing
 
+### Button Hash Stability (Issue #3 Investigation/Fix)
+- Enhanced diagnostic logging for first-seen delay mechanism (when `enableDebugInstrumentation` is enabled)
+- Logs include hash, AutomationId, and tracker state for debugging hash stability issues
+- New config option `excludeAutomationIdFromHash` (default: `false`) — when enabled, excludes volatile AutomationIds from hash computation
+- This helps with Electron apps where AutomationIds change between renders, causing false "new button" detections
+
 ### Technical Changes
 - Added P/Invoke declarations for `GetForegroundWindow`, `SetForegroundWindow`, `AttachThreadInput`, `GetWindowThreadProcessId`, `GetCurrentThreadId` to `Clicker.cs`
 - Extended `IClickExecutor.Click()` signature with `restoreFocus` and `focusRestoreDelayMs` parameters
 - Updated `AutomationClickExecutor` and `TrustFallbackHandler` to pass focus restoration parameters
 - Added `menu.Opening` / `menu.Closed` event handlers in `TrayApp.cs` for pause-on-menu-open behavior
+- Extended `DebounceTracker.ComputeHash()` with optional `excludeAutomationId` parameter
+- Enhanced first-seen delay logging with hash and AutomationId details
 - Updated documentation in `configuration.md` and `README.md`
 
 ## v1.2.0
