@@ -7,7 +7,8 @@ echo.
 :: Step 1: Publish the app
 echo [1/2] Publishing Click Run...
 cd /d "%~dp0\.."
-dotnet publish src/ClickRun/ClickRun.csproj -c Release
+:: Use x86 dotnet which has the SDK (x64 only has runtime)
+"C:\Program Files (x86)\dotnet\dotnet.exe" publish src/ClickRun/ClickRun.csproj -c Release
 if %ERRORLEVEL% neq 0 (
     echo ERROR: dotnet publish failed.
     pause
