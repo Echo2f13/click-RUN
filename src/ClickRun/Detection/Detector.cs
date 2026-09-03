@@ -13,6 +13,7 @@ namespace ClickRun.Detection;
 public sealed class Detector
 {
     private readonly ILogger _log;
+    private readonly bool _debugDiagnostics;
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
@@ -28,9 +29,10 @@ public sealed class Detector
 
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
-    public Detector(ILogger logger)
+    public Detector(ILogger logger, bool debugDiagnostics = false)
     {
         _log = logger.ForContext<Detector>();
+        _debugDiagnostics = debugDiagnostics;
     }
 
     /// <summary>
@@ -191,6 +193,26 @@ public sealed class Detector
             var combinedCondition = new OrCondition(buttonCondition, hyperlinkCondition, listItemCondition);
 
             var elements = rootElement.FindAll(TreeScope.Descendants, combinedCondition);
+
+            if (_debugDiagnostics)
+            {
+                // Count raw Button elements separately for diagnostics
+                var rawButtonCount = rootElement.FindAll(TreeScope.Descendants,
+                    new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button)).Count;
+
+                if (elements.Count == 0)
+                {
+                    _log.Debug(
+                        "UIA: No interactive elements found in {Process} | {Title} — " +
+                        "rawButtons={RawButtonCount} (webview may be inaccessible)",
+                        processName, windowTitle, rawButtonCount);
+                }
+                else
+                {
+                    _log.Debug("UIA: Found {Count} interactive elements in {Process} | {Title}",
+                        elements.Count, processName, windowTitle);
+                }
+            }
 
             var buttons = new List<(ElementDescriptor, AutomationElement)>();
 

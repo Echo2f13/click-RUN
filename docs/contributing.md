@@ -35,11 +35,14 @@ Output: `installer\Output\ClickRunSetup.exe`
 
 ## Test Suite
 
-60 tests across 4 test files:
+The suite contains 337 tests across 10 test files, including VS Code compatibility, trust fallback integration, adversarial, and property-based coverage.
+
 - `SafetyFilterTests.cs` — whitelist matching, blocklist, wildcard safety, rejection reasons
-- `ButtonPrioritizerTests.cs` — keyword priority, exact vs substring, tie-breaking, multi-candidate selection
-- `DebounceTrackerTests.cs` — hash computation, cooldown, pruning, null AutomationId handling
-- `LoggerSetupTests.cs` — log level parsing, logger creation
+- `ButtonPrioritizerTests.cs` — intent priority and multi-candidate selection
+- `DebounceTrackerTests.cs` — hash computation, cooldown, pruning, and collision resistance
+- `TrustFallback*Tests.cs` — trust-dialog detection, safety checks, integration, adversarial, and property tests
+- `VsCodeCompatibilityTests.cs` — VS Code Stable/Insiders labels, title matching, and keyboard fallback context gates
+- `LoggerSetupTests.cs` — log level parsing and logger creation
 
 ## Project Conventions
 

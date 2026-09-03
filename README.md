@@ -2,7 +2,7 @@
 
 > Auto-click permission prompts in AI development tools. Stay in flow.
 
-Click Run is an ultra-lightweight Windows system tray application that automatically clicks "Run", "Allow", "Approve", "Accept", "Trust", and other permission buttons in AI tools like **Kiro**, **VS Code** (Claude extension), and **Claude Desktop**.
+Click Run is an ultra-lightweight Windows system tray application that automatically clicks "Run", "Allow", "Approve", "Accept", and other permission buttons in AI tools like **Kiro**, **VS Code agents**, and **Claude Desktop**. It supports VS Code Stable (`Code`) and VS Code Insiders (`Code - Insiders`).
 
 No OCR. No mouse simulation. No screen scraping. Just the Windows UI Automation API reading UI trees and invoking buttons programmatically. For Electron/webview panels where UI Automation can't reach, a keyboard fallback sends numbered option keys.
 
@@ -25,7 +25,7 @@ Every 500ms:
   → Scan all Button elements (UI Automation)
   → Extract context text from dialog containers
   → Filter: blocklist ✓ process ✓ title ✓ label ✓ context ✓ visible ✓ enabled ✓
-  → Prioritize by keyword order: Run > Allow > Accept > Trust > Yes (context-checked)
+  → Prioritize safe execution actions over permanent trust actions
   → Click via InvokePattern.Invoke() (with retry)
   → Restore focus to previously active window (prevents focus stealing)
   → Fallback: send numbered key for Electron/webview panels
@@ -81,6 +81,8 @@ Plus: **kill switch** (`Ctrl+Alt+R`), **focus restoration** (prevents target app
 ```
 
 See [docs/configuration.md](docs/configuration.md) for the full reference.
+
+For VS Code agent prompts, use the `Code` and `Code - Insiders` whitelist entries with a `Visual Studio Code` window-title pattern. Labels may include keyboard hints such as `Allow (Ctrl+Enter)`; configure `prefixMatchLabels` for these dynamic suffixes. Use `dryRun: true` and `enableDebugInstrumentation: true` to inspect prompts before enabling clicks.
 
 ## Docs
 

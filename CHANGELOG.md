@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### VS Code Agent Compatibility
+- Added VS Code Stable (`Code`) and VS Code Insiders (`Code - Insiders`) whitelist targets.
+- Added strict process and window-title checks to the keyboard fallback.
+- Added context safety checks before keyboard fallback actions.
+- Added VS Code webview diagnostics and capped Pane-level context extraction.
+- Added compatibility tests for VS Code labels, dynamic keyboard-hint suffixes, and fallback safety.
+
 ## v1.3.0
 
 ### Focus Restoration (Issue #1 Fix)

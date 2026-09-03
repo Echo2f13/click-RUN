@@ -81,6 +81,7 @@ Click Run is a Windows system tray application built with C# (.NET 8) and WinFor
 Two scanning modes:
 - `Scan()` — foreground window only via `GetForegroundWindow()`
 - `ScanAll()` — all visible whitelisted windows via `EnumWindows`
+- When debug instrumentation is enabled, logs interactive-element and raw-button counts to diagnose inaccessible Electron/webview content in VS Code agent panels.
 
 ### Safety Filter (`Filtering/SafetyFilter.cs`)
 Pipeline: Button type → Visible → Enabled → Blocklist → Process → Title → Label
@@ -90,6 +91,9 @@ Keyword priority by whitelist label index. Run(0) > Allow(1) > Accept(5) > Trust
 
 ### Clicker (`Clicking/Clicker.cs`)
 `InvokePattern.Invoke()` with optional pre-click delay and single retry.
+
+### VS Code agent support
+VS Code Stable and Insiders are configured as separate whitelist targets. Agent confirmations commonly expose labels such as `Allow (Ctrl+Enter)`, `Allow Once (Ctrl+Enter)`, and `Allow All`; prefix matching handles keyboard-hint suffixes while the blocklist rejects actions such as `Proceed without executing`. When UI Automation exposes no invokable control, the optional keyboard fallback is constrained by process, window title, whitelist, blocklist, and context checks. Pane-level context extraction supports webview-hosted prompts.
 
 ### Other Components
 - `TitleMatcher` — exact/contains/regex window title matching

@@ -114,7 +114,23 @@ Common process names:
 |-------------|-------------|
 | Kiro | `Kiro` |
 | VS Code | `Code` |
+| VS Code Insiders | `Code - Insiders` |
 | Claude Desktop | `Claude` |
+
+## VS Code agent prompts
+
+VS Code Stable uses the `Code` process name; VS Code Insiders uses `Code - Insiders`. Both are included in the default configuration. Agent prompts rendered in webviews may expose no interactive UI Automation elements or may expose incomplete context text.
+
+Enable debug instrumentation to diagnose this:
+
+```json
+{
+  "logLevel": "debug",
+  "enableDebugInstrumentation": true
+}
+```
+
+Look for `UIA: No interactive elements found` and `rawButtons=` in the log. If the keyboard fallback is enabled, it now requires both the configured process and window title to match. `Yes` options also require safe context keywords and are rejected when the context is missing or dangerous.
 
 ## Finding the correct button label
 

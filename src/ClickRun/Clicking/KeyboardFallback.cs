@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using ClickRun.Matching;
 using ClickRun.Models;
 using Serilog;
 
@@ -123,6 +124,8 @@ public sealed class KeyboardFallback
             {
                 if (!string.Equals(entry.ProcessName, processName, StringComparison.OrdinalIgnoreCase))
                     continue;
+                if (!TitleMatcher.MatchAny(windowTitle, entry.WindowTitles))
+                    continue;
                 foreach (var allowed in entry.ButtonLabels)
                 {
                     if (label.Contains(allowed, StringComparison.OrdinalIgnoreCase) ||
@@ -149,6 +152,17 @@ public sealed class KeyboardFallback
             {
                 _log.Debug("KeyboardFallback: Option '{Number} {Label}' is blocked, skipping", number, label);
                 continue;
+            }
+
+            if (config.ContextRequiredLabels.Any(required =>
+                label.Contains(required, StringComparison.OrdinalIgnoreCase)))
+            {
+                if (!config.SafeContextKeywords.Any(keyword =>
+                    fullContext.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+                {
+                    _log.Debug("KeyboardFallback: Missing safe context for '{Label}', skipping", label);
+                    continue;
+                }
             }
 
             if (number < bestNumber)

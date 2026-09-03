@@ -23,6 +23,7 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
   "dangerousContextKeywords": ["Delete", "Remove", "Overwrite", "Reset", "Drop", "Erase", "Destroy"],
   "multiWindowMode": false,
   "enableKeyboardFallback": false,
+  "prefixMatchLabels": ["Allow", "Run", "Accept", "Approve", "Continue", "Yes", "Trust"],
   "trustFallbackMode": "off",
   "whitelist": [
     {
@@ -37,14 +38,21 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
       "windowTitles": [
         { "pattern": "Visual Studio Code", "matchMode": "contains" }
       ],
-      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Trust"]
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Accept command"]
+    },
+    {
+      "processName": "Code - Insiders",
+      "windowTitles": [
+        { "pattern": "Visual Studio Code", "matchMode": "contains" }
+      ],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Accept command"]
     },
     {
       "processName": "Claude",
       "windowTitles": [
         { "pattern": "Claude", "matchMode": "contains" }
       ],
-      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Trust"]
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Accept command"]
     }
   ]
 }
@@ -125,7 +133,12 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
 ### `enableKeyboardFallback`
 - Type: `bool`
 - Default: `false`
-- When `true`, if UI Automation finds no clickable candidates in a scan cycle, Click Run checks the extracted context text for numbered option patterns (e.g., "1 Yes", "2 No") and sends the corresponding key press. This handles Electron/webview panels where buttons aren't accessible via UI Automation. The fallback applies all safety checks (whitelist, blocklist, dangerous context) before sending any key. The target window is focused via `SetForegroundWindow` before input.
+- When `true`, if UI Automation finds no clickable candidates in a scan cycle, Click Run checks the extracted context text for numbered option patterns (e.g., "1 Yes", "2 No") and sends the corresponding key press. This handles Electron/webview panels where buttons aren't accessible via UI Automation. The fallback applies process and window-title matching, whitelist, blocklist, and context safety checks before sending any key. The target window is focused via `SetForegroundWindow` before input.
+
+### `prefixMatchLabels`
+- Type: `string[]`
+- Default: `["Allow", "Run", "Accept", "Approve", "Continue", "Yes", "Trust"]`
+- Allows explicitly configured labels to match dynamic suffixes at a word boundary. For example, `"Allow"` matches `"Allow (Ctrl+Enter)"`, but does not match unrelated labels containing the word `Allow`. This is useful for VS Code agent confirmation buttons that expose keyboard shortcuts in their accessible names.
 
 ### `trustFallbackMode`
 - Type: `string`
@@ -185,6 +198,8 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
 
 #### `whitelist[].buttonLabels`
 - Array of allowed button label strings. Case-insensitive exact match. The order defines keyword priority — earlier labels have higher priority. When multiple buttons match, the one matching the earliest label wins.
+
+For VS Code agent confirmations, the default targets are `Code` and `Code - Insiders`, with window titles containing `Visual Studio Code`. Current labels may include `Allow (Ctrl+Enter)`, `Allow Once (Ctrl+Enter)`, or `Allow All`; use exact labels or `prefixMatchLabels` as appropriate. `Proceed without executing` is blocked by default.
 
 ## Keyword Priority
 

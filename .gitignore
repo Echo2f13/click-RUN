@@ -17,6 +17,10 @@ obj/
 ## Kiro
 .kiro/
 
+## Local agent work notes
+.VS_agent/
+update.md
+
 ## OS
 Thumbs.db
 Desktop.ini

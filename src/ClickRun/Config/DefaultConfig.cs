@@ -15,7 +15,30 @@ public static class DefaultConfig
 
     private static readonly List<string> DefaultBlockedLabels = new()
     {
-        "Reject", "Cancel", "Deny"
+        "Reject", "Cancel", "Deny", "Proceed without executing"
+    };
+
+    // Labels that may appear with suffixes like "(Ctrl+Enter)" in VS Code.
+    // PrefixMatchLabels enables "Allow (Ctrl+Enter)" to match "Allow".
+    private static readonly List<string> DefaultPrefixMatchLabels = new()
+    {
+        "Allow", "Run", "Accept", "Approve", "Continue", "Yes", "Trust"
+    };
+
+    private static readonly List<string> DefaultSafeContextKeywords = new()
+    {
+        "Allow write", "Allow access", "Permission", "Grant", "Allow edit",
+        "Allow all", "Make this edit", "apply edit", "run command", "execute",
+        // VS Code Copilot agent confirmation markers
+        "Chat Confirmation Dialog", "confirmation pending"
+    };
+
+    // "Delete" and "Remove" removed: VS Code Copilot wraps normal confirmations
+    // in text describing what will happen (e.g. "Deletes the file"), which would
+    // cause every shell command confirmation to be rejected as dangerous.
+    private static readonly List<string> DefaultDangerousContextKeywords = new()
+    {
+        "Overwrite", "Reset", "Drop", "Erase", "Destroy"
     };
 
     /// <summary>
@@ -34,6 +57,9 @@ public static class DefaultConfig
             DryRun = false,
             PreClickDelayMs = 0,
             BlockedLabels = new List<string>(DefaultBlockedLabels),
+            PrefixMatchLabels = new List<string>(DefaultPrefixMatchLabels),
+            SafeContextKeywords = new List<string>(DefaultSafeContextKeywords),
+            DangerousContextKeywords = new List<string>(DefaultDangerousContextKeywords),
             MultiWindowMode = false,
             Whitelist = new List<WhitelistEntry>
             {
@@ -49,6 +75,15 @@ public static class DefaultConfig
                 new()
                 {
                     ProcessName = "Code",
+                    WindowTitles = new List<WindowTitlePattern>
+                    {
+                        new() { Pattern = "Visual Studio Code", MatchMode = MatchMode.Contains }
+                    },
+                    ButtonLabels = new List<string>(DefaultButtonLabels)
+                },
+                new()
+                {
+                    ProcessName = "Code - Insiders",
                     WindowTitles = new List<WindowTitlePattern>
                     {
                         new() { Pattern = "Visual Studio Code", MatchMode = MatchMode.Contains }

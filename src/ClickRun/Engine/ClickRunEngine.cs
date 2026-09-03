@@ -61,7 +61,7 @@ public sealed class ClickRunEngine : IDisposable
         _config = config;
         _logger = logger;
         _killSwitch = new KillSwitch(config.KillSwitchHotkey, logger);
-        _detector = new Detector(logger);
+        _detector = new Detector(logger, config.EnableDebugInstrumentation);
         _safetyFilter = new SafetyFilter(logger);
         _debounceTracker = new DebounceTracker();
         _clicker = new Clicker(logger);

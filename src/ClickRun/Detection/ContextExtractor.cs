@@ -35,7 +35,18 @@ public static class ContextExtractor
             if (container == null)
             {
                 // No small container found — just return the button's siblings' text
-                return ExtractSiblingText(button, logger);
+                var siblingText = ExtractSiblingText(button, logger);
+                if (siblingText.Length < 10)
+                {
+                    var paneText = PaneContainerFallback(button);
+                    if (paneText != null)
+                    {
+                        logger?.Debug("ContextExtractor: Used Pane container fallback");
+                        return paneText;
+                    }
+                }
+
+                return siblingText;
             }
 
             var sb = new StringBuilder();
@@ -129,9 +140,40 @@ public static class ContextExtractor
         }
     }
 
-    private static void CollectText(TreeWalker walker, AutomationElement element, StringBuilder sb, int depth)
+    private static string? PaneContainerFallback(AutomationElement button)
     {
-        if (depth > MaxDepth || sb.Length >= MaxTextLength) return;
+        try
+        {
+            var walker = TreeWalker.ControlViewWalker;
+            var parent = walker.GetParent(button);
+            if (parent == null || parent.Current.ControlType != ControlType.Pane)
+                return null;
+
+            // Count direct children; abort if the Pane is too large
+            int childCount = 0;
+            var countChild = walker.GetFirstChild(parent);
+            while (countChild != null && childCount < 31)
+            {
+                countChild = walker.GetNextSibling(countChild);
+                childCount++;
+            }
+
+            if (childCount >= 31)
+                return null;
+
+            var sb = new StringBuilder();
+            CollectText(walker, parent, sb, depth: 0, maxDepth: 2);
+            return sb.Length > MaxTextLength ? sb.ToString(0, MaxTextLength) : sb.ToString();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void CollectText(TreeWalker walker, AutomationElement element, StringBuilder sb, int depth, int maxDepth = MaxDepth)
+    {
+        if (depth > maxDepth || sb.Length >= MaxTextLength) return;
 
         try
         {
@@ -143,7 +185,7 @@ public static class ContextExtractor
                 try
                 {
                     AppendText(sb, child.Current.Name);
-                    CollectText(walker, child, sb, depth + 1);
+                    CollectText(walker, child, sb, depth + 1, maxDepth);
                     child = walker.GetNextSibling(child);
                     count++;
                 }
