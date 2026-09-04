@@ -1,13 +1,15 @@
 # Changelog
 
-## Unreleased
+## v2.0.0 — 2026-09-04
 
 ### VS Code Agent Compatibility
-- Added VS Code Stable (`Code`) and VS Code Insiders (`Code - Insiders`) whitelist targets.
-- Added strict process and window-title checks to the keyboard fallback.
-- Added context safety checks before keyboard fallback actions.
-- Added VS Code webview diagnostics and capped Pane-level context extraction.
-- Added compatibility tests for VS Code labels, dynamic keyboard-hint suffixes, and fallback safety.
+- Added VS Code Stable (`Code`) and VS Code Insiders (`Code - Insiders`) as built-in default whitelist targets.
+- Window-title pattern `"Visual Studio Code"` (contains) scopes clicks to VS Code windows only — prevents false positives on other `Code` processes.
+- Strict process and window-title checks added to the keyboard fallback path, so fallback keys are never sent to an unintended window.
+- Context safety checks applied before all keyboard fallback actions — `Yes` and similar ambiguous labels require a safe-context keyword in the surrounding dialog text.
+- VS Code webview diagnostics added to debug instrumentation output for easier troubleshooting of Electron/webview panels.
+- Capped Pane-level context extraction to prevent walking large VS Code UI trees (mirrors the existing Electron performance fix).
+- Added `VsCodeCompatibilityTests`: covers `Code` / `Code - Insiders` label acceptance, wrong-title rejection, `Yes` context gating (both SafetyFilter and KeyboardFallback), and presence of both entries in `DefaultConfig`.
 
 ## v1.3.0
 

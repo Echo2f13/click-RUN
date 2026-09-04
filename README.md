@@ -2,18 +2,61 @@
 
 > Auto-click permission prompts in AI development tools. Stay in flow.
 
-Click Run is an ultra-lightweight Windows system tray application that automatically clicks "Run", "Allow", "Approve", "Accept", and other permission buttons in AI tools like **Kiro**, **VS Code agents**, and **Claude Desktop**. It supports VS Code Stable (`Code`) and VS Code Insiders (`Code - Insiders`).
+Click Run is an ultra-lightweight Windows system tray application that automatically clicks "Run", "Allow", "Approve", "Accept", and other permission buttons in AI tools like **Kiro**, **VS Code agents**, and **Claude Desktop**.
+
+**v2.0.0** adds first-class VS Code compatibility: both VS Code Stable (`Code`) and VS Code Insiders (`Code - Insiders`) are built-in default whitelist targets, with strict window-title scoping, keyboard fallback safety, and context-gated "Yes" handling for agent permission prompts.
 
 No OCR. No mouse simulation. No screen scraping. Just the Windows UI Automation API reading UI trees and invoking buttons programmatically. For Electron/webview panels where UI Automation can't reach, a keyboard fallback sends numbered option keys.
 
 ## Install
 
-Download `ClickRunSetup.exe` from [Releases](https://github.com/Echo2f13/click-RUN/releases/tag/v1.0.0) and run it. Click Run appears in your system tray immediately.
+Download `ClickRunSetup.exe` from [Releases](https://github.com/Echo2f13/click-RUN/releases/tag/v2.0.0) and run it. Click Run appears in your system tray immediately.
 
 Or build from source:
 ```bash
 dotnet publish src/ClickRun/ClickRun.csproj -c Release
 ```
+
+## VS Code Compatibility (v2.0.0)
+
+Click Run handles both VS Code flavors out of the box:
+
+| Process name | Covers |
+|---|---|
+| `Code` | VS Code Stable |
+| `Code - Insiders` | VS Code Insiders |
+
+Both entries are included in the default `config.json` with the window-title pattern `"Visual Studio Code"` (`contains`), so clicks are scoped to actual VS Code windows and never fire in other applications that happen to use a `Code` process name.
+
+**What gets clicked automatically:**
+`Run`, `Allow`, `Approve`, `Continue`, `Accept`, `Accept command`, `Yes` (context-gated)
+
+**Safety details specific to VS Code:**
+- Window-title check (`Visual Studio Code`) is enforced on both the UI Automation path and the keyboard fallback path — an unmatched title is always rejected.
+- `Yes` buttons require a safe-context keyword (e.g. "Permission", "Allow access") in the surrounding dialog text before being clicked. Dangerous-context keywords (e.g. "Delete", "Overwrite") cause a hard reject.
+- VS Code agent prompts with keyboard hints in the label (e.g. `Allow (Ctrl+Enter)`) are handled via `prefixMatchLabels` — configure this if your prompts use dynamic suffixes.
+- Keyboard fallback (for webview/Electron panels) applies the same title and context safety checks as the main UI Automation path.
+
+**Recommended setup for VS Code:**
+```json
+{
+  "enableKeyboardFallback": true,
+  "whitelist": [
+    {
+      "processName": "Code",
+      "windowTitles": [{ "pattern": "Visual Studio Code", "matchMode": "contains" }],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Accept command"]
+    },
+    {
+      "processName": "Code - Insiders",
+      "windowTitles": [{ "pattern": "Visual Studio Code", "matchMode": "contains" }],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Accept command"]
+    }
+  ]
+}
+```
+
+Use `"dryRun": true` and `"enableDebugInstrumentation": true` to inspect what buttons Click Run detects before enabling live clicks.
 
 ## How It Works
 
@@ -75,14 +118,22 @@ Plus: **kill switch** (`Ctrl+Alt+R`), **focus restoration** (prevents target app
       "processName": "Kiro",
       "windowTitles": [{ "pattern": "Kiro", "matchMode": "contains" }],
       "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Accept command", "Trust", "Trust command and accept"]
+    },
+    {
+      "processName": "Code",
+      "windowTitles": [{ "pattern": "Visual Studio Code", "matchMode": "contains" }],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Accept command"]
+    },
+    {
+      "processName": "Code - Insiders",
+      "windowTitles": [{ "pattern": "Visual Studio Code", "matchMode": "contains" }],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Accept command"]
     }
   ]
 }
 ```
 
 See [docs/configuration.md](docs/configuration.md) for the full reference.
-
-For VS Code agent prompts, use the `Code` and `Code - Insiders` whitelist entries with a `Visual Studio Code` window-title pattern. Labels may include keyboard hints such as `Allow (Ctrl+Enter)`; configure `prefixMatchLabels` for these dynamic suffixes. Use `dryRun: true` and `enableDebugInstrumentation: true` to inspect prompts before enabling clicks.
 
 ## Docs
 
