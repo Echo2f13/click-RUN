@@ -10,7 +10,7 @@ No OCR. No mouse simulation. No screen scraping. Just the Windows UI Automation 
 
 ## Install
 
-Download `ClickRunSetup.exe` from [Releases](https://github.com/Echo2f13/click-RUN/releases/tag/v2.0.0) and run it. Click Run appears in your system tray immediately.
+Download the latest `ClickRunSetup.exe` from the [GitHub Releases page](https://github.com/Echo2f13/click-RUN/releases/latest) and run it. The current release is **v2.0.0**. Click Run appears in your system tray immediately.
 
 Or build from source:
 ```bash
@@ -92,10 +92,10 @@ Right-click the tray icon for:
 1. **Window scope** — foreground only (default), or multi-window for whitelisted apps
 2. **Process whitelist** — only clicks in apps you've approved
 3. **Window title matching** — exact, contains, or regex
-4. **Blocklist** — hard-rejects "Reject", "Cancel", "Deny"
+4. **Blocklist** — hard-rejects labels such as "Reject", "Cancel", "Deny", and "Proceed without executing"
 5. **Button label whitelist** — only clicks labels you've approved
-6. **Context-aware "Yes"** — "Yes" buttons only clicked when dialog context contains safe keywords; blocked when context contains dangerous keywords (Delete, Remove, etc.)
-7. **Keyword priority** — Run > Accept > Trust > Yes; picks the safest match
+6. **Context-aware confirmation** — ambiguous labels such as "Yes" require safe context and reject dangerous context
+7. **Intent priority** — execution actions are preferred over permanent trust actions
 8. **Debounce** — prevents re-clicking the same button (2s cooldown)
 
 Plus: **kill switch** (`Ctrl+Alt+R`), **focus restoration** (prevents target apps from stealing focus), **dry-run mode**, **debug instrumentation**, and **single-instance guard**.

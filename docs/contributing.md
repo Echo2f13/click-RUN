@@ -14,9 +14,19 @@ Thanks for your interest in contributing to Click Run.
 dotnet build src/ClickRun/ClickRun.csproj
 ```
 
+For the test-friendly Debug configuration:
+```bash
+dotnet build tests/ClickRun.Tests/ClickRun.Tests.csproj -c Debug
+```
+
 ### Run Tests
 ```bash
 dotnet test tests/ClickRun.Tests/ClickRun.Tests.csproj
+```
+
+To run the full suite after building without rebuilding:
+```bash
+dotnet test tests/ClickRun.Tests/ClickRun.Tests.csproj -c Debug --logger "console;verbosity=normal" --no-build
 ```
 
 ### Run
@@ -35,7 +45,7 @@ Output: `installer\Output\ClickRunSetup.exe`
 
 ## Test Suite
 
-The suite contains 337 tests across 10 test files, including VS Code compatibility, trust fallback integration, adversarial, and property-based coverage.
+The suite contains 337 tests across 10 test files, including VS Code compatibility, trust fallback integration, adversarial, and property-based coverage. The current verified baseline is 337 passed, 0 failed, and 0 skipped.
 
 - `SafetyFilterTests.cs` — whitelist matching, blocklist, wildcard safety, rejection reasons
 - `ButtonPrioritizerTests.cs` — intent priority and multi-candidate selection
@@ -43,6 +53,21 @@ The suite contains 337 tests across 10 test files, including VS Code compatibili
 - `TrustFallback*Tests.cs` — trust-dialog detection, safety checks, integration, adversarial, and property tests
 - `VsCodeCompatibilityTests.cs` — VS Code Stable/Insiders labels, title matching, and keyboard fallback context gates
 - `LoggerSetupTests.cs` — log level parsing and logger creation
+
+## VS Code Agent Validation
+
+ClickRun is a Windows tray application and should be validated on Windows with VS Code Stable or Insiders installed. Before enabling live clicks, use a configuration with `dryRun` set to `true`, debug logging enabled, and only the intended VS Code process and window-title entries whitelisted. Confirm a real agent prompt produces `Result=PASS` and `[DRY RUN] Would click` entries in `%USERPROFILE%\\.clickrun\\clickrun.log`.
+
+VS Code Stable uses the `Code` process name and VS Code Insiders uses `Code - Insiders`. Agent confirmation labels can include keyboard hints such as `Allow (Ctrl+Enter)`; the default configuration uses `prefixMatchLabels` for these dynamic suffixes. Do not add a new permission label to the whitelist without checking its exact accessible name and safety implications.
+
+## Release Checklist
+
+- Run the Debug build and complete test suite.
+- Confirm the test count and pass/fail totals in the test output.
+- Test VS Code Stable and Insiders prompts in dry-run mode.
+- Verify the project and installer versions match.
+- Update `CHANGELOG.md` and relevant documentation for user-visible changes.
+- Build the installer on Windows with the .NET 8 SDK and Inno Setup 6 installed.
 
 ## Project Conventions
 
