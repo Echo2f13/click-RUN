@@ -15,14 +15,15 @@ public static class DefaultConfig
 
     private static readonly List<string> DefaultBlockedLabels = new()
     {
-        "Reject", "Cancel", "Deny", "Proceed without executing"
+        "Reject", "Cancel", "Deny", "Proceed without executing", "Discard",
+        "Run and Debug", "Run Task", "Run Without Debugging", "Accept All Changes"
     };
 
     // Labels that may appear with suffixes like "(Ctrl+Enter)" in VS Code.
     // PrefixMatchLabels enables "Allow (Ctrl+Enter)" to match "Allow".
     private static readonly List<string> DefaultPrefixMatchLabels = new()
     {
-        "Allow", "Run", "Accept", "Approve", "Continue", "Yes", "Trust"
+        "Allow", "Run", "Accept", "Approve", "Continue", "Yes", "Trust", "Proceed", "Submit"
     };
 
     private static readonly List<string> DefaultSafeContextKeywords = new()
@@ -30,7 +31,10 @@ public static class DefaultConfig
         "Allow write", "Allow access", "Permission", "Grant", "Allow edit",
         "Allow all", "Make this edit", "apply edit", "run command", "execute",
         // VS Code Copilot agent confirmation markers
-        "Chat Confirmation Dialog", "confirmation pending"
+        "Chat Confirmation Dialog", "confirmation pending",
+        // Antigravity permission texts
+        "Allow access to", "Allow network request", "tool execution",
+        "Allow running", "Allow creating", "Allow viewing", "Allow editing", "Allow deleting"
     };
 
     // "Delete" and "Remove" removed: VS Code Copilot wraps normal confirmations
@@ -38,7 +42,8 @@ public static class DefaultConfig
     // cause every shell command confirmation to be rejected as dangerous.
     private static readonly List<string> DefaultDangerousContextKeywords = new()
     {
-        "Overwrite", "Reset", "Drop", "Erase", "Destroy"
+        "Overwrite", "Reset", "Drop", "Erase", "Destroy",
+        "rm -rf", "del /f /s /q", "format c:"
     };
 
     /// <summary>
@@ -58,6 +63,7 @@ public static class DefaultConfig
             PreClickDelayMs = 0,
             BlockedLabels = new List<string>(DefaultBlockedLabels),
             PrefixMatchLabels = new List<string>(DefaultPrefixMatchLabels),
+            ContextRequiredLabels = new List<string> { "Yes", "Submit" },
             SafeContextKeywords = new List<string>(DefaultSafeContextKeywords),
             DangerousContextKeywords = new List<string>(DefaultDangerousContextKeywords),
             MultiWindowMode = false,
@@ -98,6 +104,45 @@ public static class DefaultConfig
                         new() { Pattern = "Claude", MatchMode = MatchMode.Contains }
                     },
                     ButtonLabels = new List<string>(DefaultButtonLabels)
+                },
+                new()
+                {
+                    ProcessName = "Antigravity IDE",
+                    WindowTitles = new List<WindowTitlePattern>
+                    {
+                        new() { Pattern = "Antigravity IDE", MatchMode = MatchMode.Contains }
+                    },
+                    ButtonLabels = new List<string>
+                    {
+                        "Run", "Allow", "Approve", "Continue", "Proceed",
+                        "Accept", "Yes", "Yes, allow all edits this session", "Accept command", "Submit"
+                    }
+                },
+                new()
+                {
+                    ProcessName = "Antigravity",
+                    WindowTitles = new List<WindowTitlePattern>
+                    {
+                        new() { Pattern = "Antigravity", MatchMode = MatchMode.Contains }
+                    },
+                    ButtonLabels = new List<string>
+                    {
+                        "Run", "Allow", "Approve", "Continue", "Proceed",
+                        "Accept", "Yes", "Accept command", "Submit"
+                    }
+                },
+                new()
+                {
+                    ProcessName = "Antigravity IDE - Insiders",
+                    WindowTitles = new List<WindowTitlePattern>
+                    {
+                        new() { Pattern = "Antigravity IDE - Insiders", MatchMode = MatchMode.Contains }
+                    },
+                    ButtonLabels = new List<string>
+                    {
+                        "Run", "Allow", "Approve", "Continue", "Proceed",
+                        "Accept", "Yes", "Yes, allow all edits this session", "Accept command", "Submit"
+                    }
                 }
             }
         };

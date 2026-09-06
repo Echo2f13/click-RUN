@@ -86,25 +86,25 @@ public class SafetyFilter
                 continue;
             }
 
+            // Build full context for all context checks
+            var fullContext = string.IsNullOrEmpty(element.ContextText)
+                ? element.WindowTitle
+                : $"{element.WindowTitle} {element.ContextText}";
+
+            // Dangerous context check — hard reject for ALL labels
+            if (ContainsAny(fullContext, config.DangerousContextKeywords))
+            {
+                return Reject(element, "dangerous_context");
+            }
+
             // Context-based safety check for labels that require safe context (e.g., "Yes")
             if (RequiresContextValidation(element.ButtonLabel, config.ContextRequiredLabels))
             {
-                // Build full context: window title + extracted UI context text
-                var fullContext = string.IsNullOrEmpty(element.ContextText)
-                    ? element.WindowTitle
-                    : $"{element.WindowTitle} {element.ContextText}";
-
                 _logger.Debug(
                     "Context check for '{Label}': {ContextLength} chars | Preview: {Preview}",
                     element.ButtonLabel,
                     fullContext.Length,
                     fullContext.Length > 120 ? fullContext[..120] + "..." : fullContext);
-
-                // Dangerous context check first — hard reject
-                if (ContainsAny(fullContext, config.DangerousContextKeywords))
-                {
-                    return Reject(element, "dangerous_context");
-                }
 
                 // Safe context check — must contain at least one safe keyword
                 if (!ContainsAny(fullContext, config.SafeContextKeywords))

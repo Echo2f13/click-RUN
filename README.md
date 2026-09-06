@@ -25,6 +25,9 @@ Click Run handles both VS Code flavors out of the box:
 |---|---|
 | `Code` | VS Code Stable |
 | `Code - Insiders` | VS Code Insiders |
+| `Antigravity IDE` | Antigravity IDE (VS Code-based editor) |
+| `Antigravity` | Antigravity 2.0 (standalone Agent Manager) |
+| `Antigravity IDE - Insiders` | Antigravity IDE Canary |
 
 Both entries are included in the default `config.json` with the window-title pattern `"Visual Studio Code"` (`contains`), so clicks are scoped to actual VS Code windows and never fire in other applications that happen to use a `Code` process name.
 
@@ -57,6 +60,24 @@ Both entries are included in the default `config.json` with the window-title pat
 ```
 
 Use `"dryRun": true` and `"enableDebugInstrumentation": true` to inspect what buttons Click Run detects before enabling live clicks.
+
+## Antigravity IDE & Antigravity 2.0 Compatibility (v3.0.0)
+
+Click Run provides first-class support for Google Antigravity IDE and Antigravity 2.0.
+
+**Important Setup:** Antigravity UI permission prompts run in Chromium webviews that are hidden from the Windows UI Automation tree by default. To make them visible, you must set an environment variable once and restart Antigravity:
+
+```powershell
+[System.Environment]::SetEnvironmentVariable('ELECTRON_FORCE_RENDERER_ACCESSIBILITY', '1', 'User')
+```
+
+**What gets clicked automatically:**
+`Proceed`, `Run`, `Allow`, `Approve`, `Continue`, `Accept`, `Yes` (context-gated)
+
+**Safety details specific to Antigravity:**
+- Destructive commands (`rm -rf`, `del`, `format`) found in the prompt context automatically block clicks, even for safe labels like `Run`.
+- Broad trust-escalation labels (`Always proceed`, `Trust workspace`) are excluded from the default whitelist to prevent accidental grants.
+- VS Code toolbar false-positives (`Run and Debug`, `Run Task`, `Accept All Changes`) inherited by Antigravity IDE are explicitly blocked.
 
 ## How It Works
 
@@ -128,6 +149,16 @@ Plus: **kill switch** (`Ctrl+Alt+R`), **focus restoration** (prevents target app
       "processName": "Code - Insiders",
       "windowTitles": [{ "pattern": "Visual Studio Code", "matchMode": "contains" }],
       "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Accept command"]
+    },
+    {
+      "processName": "Antigravity IDE",
+      "windowTitles": [{ "pattern": "Antigravity IDE", "matchMode": "contains" }],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Proceed", "Accept", "Yes", "Yes, allow all edits this session", "Accept command"]
+    },
+    {
+      "processName": "Antigravity",
+      "windowTitles": [{ "pattern": "Antigravity", "matchMode": "contains" }],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Proceed", "Accept", "Yes", "Accept command"]
     }
   ]
 }

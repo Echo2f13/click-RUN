@@ -201,6 +201,34 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
 
 For VS Code agent confirmations, the default targets are `Code` and `Code - Insiders`, with window titles containing `Visual Studio Code`. Current labels may include `Allow (Ctrl+Enter)`, `Allow Once (Ctrl+Enter)`, or `Allow All`; use exact labels or `prefixMatchLabels` as appropriate. `Proceed without executing` is blocked by default.
 
+## Antigravity IDE and Antigravity 2.0
+
+Click Run has first-class support for Google Antigravity IDE and Antigravity 2.0 (the standalone Agent Manager).
+
+### One-Time Accessibility Setup
+Because Antigravity permission buttons live inside Chromium webviews, Electron does not expose them to the Windows UI Automation tree by default. You must run the following command in PowerShell and then restart Antigravity:
+
+```powershell
+[System.Environment]::SetEnvironmentVariable('ELECTRON_FORCE_RENDERER_ACCESSIBILITY', '1', 'User')
+```
+If this is not set, UI Automation will see zero buttons. (If `enableKeyboardFallback` is true, Click Run will attempt a degraded keyboard fallback, but setting the environment variable is strongly recommended).
+
+### Recommended Config
+The built-in default config includes entries for `Antigravity IDE`, `Antigravity IDE - Insiders`, and `Antigravity` (the standalone agent manager):
+
+```json
+{
+  "processName": "Antigravity IDE",
+  "windowTitles": [
+    { "pattern": "Antigravity IDE", "matchMode": "contains" }
+  ],
+  "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Proceed", "Accept", "Yes", "Yes, allow all edits this session", "Accept command"]
+}
+```
+
+### Trust Escalation Labels
+Buttons like `Always proceed` or `Trust workspace` are intentionally omitted from the default whitelist because they grant permanent or session-wide trust. If you wish to auto-click these, you must add them manually. We strongly recommend configuring them with `contextRequiredLabels` and `safeContextKeywords` (e.g., `"tool execution"` or `"trust the authors"`) to prevent accidental trust grants in other contexts.
+
 ## Keyword Priority
 
 The `buttonLabels` order is critical. It defines which button gets clicked when multiple pass the filter:

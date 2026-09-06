@@ -1,5 +1,15 @@
 # Changelog
 
+## v3.0.0
+
+### Antigravity IDE & 2.0 Compatibility
+- Added Google Antigravity IDE (`Antigravity IDE`), Antigravity IDE Canary (`Antigravity IDE - Insiders`), and Antigravity 2.0 Agent Manager (`Antigravity`) as built-in default whitelist targets.
+- Added strict safety hardening for VS Code toolbars inherited by Antigravity IDE. Explicitly blocks `Run and Debug`, `Run Task`, `Run Without Debugging`, `Accept All Changes`, and `Discard`.
+- Added dynamic suffix support for `Proceed` (e.g. `Proceed (Ctrl+Enter)`).
+- Extended dangerous context keywords to include `rm -rf`, `del /f /s /q`, and `format c:` to catch destructive commands in Antigravity prompts. Dangerous contexts are now enforced as a hard-block across *all* button labels (including `Run` and `Proceed`), not just context-dependent labels like `Yes`.
+- Documented `ELECTRON_FORCE_RENDERER_ACCESSIBILITY=1` requirement for enabling UI Automation in Antigravity Chromium webviews.
+- Added 18 new tests in `AntigravityCompatibilityTests` covering standard approvals, false-positive prevention, context-based blocking, and keyboard fallbacks.
+
 ## v2.0.0 — 2026-09-04
 
 ### VS Code Agent Compatibility
