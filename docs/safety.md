@@ -20,20 +20,21 @@ Wildcard process matching (`"*"`) is disabled by default and requires an explici
 The window title must match at least one configured pattern for the matched process. Three match modes are available (exact, contains, regex), with `exact` as the default for maximum precision.
 
 ### Layer 4: Blocklist (Hard Reject)
-Before any whitelist matching, button labels are checked against the blocklist. Any button whose label contains a blocked word (case-insensitive substring match) is immediately rejected. Default blocked words: `Reject`, `Cancel`, `Deny`.
+Before any whitelist matching, button labels are checked against the blocklist. Any button whose label contains a blocked word (case-insensitive substring match) is immediately rejected. Default blocked words: `Reject`, `Cancel`, `Deny`, `Proceed without executing`, `Discard`, `Run and Debug`, `Run Task`, `Run Without Debugging`, `Accept All Changes`.
 
-The blocklist runs before the whitelist, so even if a button label like "Cancel and Retry" contains "Retry" which might match a whitelist entry, the "Cancel" blocklist entry rejects it first.
+The VS Code toolbar entries (`Run and Debug`, etc.) are critical — since Antigravity IDE is a VS Code fork, it inherits these toolbar buttons. Because `"Run"` is in `prefixMatchLabels`, `"Run and Debug"` would otherwise match via word-boundary prefix. The blocklist runs before the whitelist and before prefix matching, so these are always rejected first.
 
 ### Layer 5: Button Label Whitelist
 Only buttons whose labels exactly match (case-insensitive) a whitelist entry are accepted. Substring matching is used only for prioritization, not for initial acceptance by the safety filter.
 
-### Layer 6: Context-Aware "Yes" Validation
-Labels in `contextRequiredLabels` (default: "Yes") require additional context validation. Click Run extracts text from the UI tree around the button (dialog container, sibling elements) and checks:
-- If context contains any `dangerousContextKeywords` (Delete, Remove, Overwrite, etc.) → hard reject
-- If context contains at least one `safeContextKeywords` (Allow write, Permission, Grant, etc.) → pass
-- If neither → reject
+### Layer 6: Context-Aware Safety
+Click Run extracts text from the UI tree around each button (dialog container, sibling elements) and runs two checks:
 
-This prevents blind "Yes" clicking on dangerous dialogs while allowing safe permission prompts. Labels like "Run" and "Accept" skip this check entirely.
+**Dangerous context — blocks ALL labels.** If the context contains any `dangerousContextKeywords` (`rm -rf`, `del /f /s /q`, `format c:`, `Drop`, `Overwrite`, etc.), the click is hard-rejected regardless of the button label. This means even a `Run` or `Proceed` button is blocked if a destructive shell command appears in the surrounding prompt text.
+
+**Context-required labels (`Yes` etc.) — require safe context.** Labels in `contextRequiredLabels` (default: `"Yes"`) additionally require at least one `safeContextKeywords` to be present. If no safe keyword is found, the click is rejected. This prevents blind "Yes" clicking on destructive dialogs.
+
+Labels like `Run`, `Allow`, and `Accept` skip the safe-context requirement but are still subject to the dangerous-context hard block.
 
 ### Layer 7: Keyword Priority
 When multiple buttons pass all filters, the prioritizer selects the single safest choice using strict keyword priority defined by the whitelist label order:

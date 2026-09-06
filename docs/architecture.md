@@ -92,8 +92,8 @@ Keyword priority by whitelist label index. Run(0) > Allow(1) > Accept(5) > Trust
 ### Clicker (`Clicking/Clicker.cs`)
 `InvokePattern.Invoke()` with optional pre-click delay and single retry.
 
-### VS Code agent support
-VS Code Stable and Insiders are configured as separate whitelist targets. Agent confirmations commonly expose labels such as `Allow (Ctrl+Enter)`, `Allow Once (Ctrl+Enter)`, and `Allow All`; prefix matching handles keyboard-hint suffixes while the blocklist rejects actions such as `Proceed without executing`. When UI Automation exposes no invokable control, the optional keyboard fallback is constrained by process, window title, whitelist, blocklist, and context checks. Pane-level context extraction supports webview-hosted prompts.
+### VS Code and Antigravity Support
+VS Code Stable (`Code`) and Insiders (`Code - Insiders`) are configured as separate whitelist targets. Antigravity IDE, Antigravity 2.0 Agent Manager, and Antigravity IDE Insiders are also built-in targets (v2.5.0). Agent confirmations commonly expose labels such as `Allow (Ctrl+Enter)`, `Proceed (Ctrl+Enter)`; prefix matching handles keyboard-hint suffixes while the blocklist rejects VS Code toolbar actions such as `Run and Debug`, `Run Task`, and `Accept All Changes`. When UI Automation exposes no invokable control (common in Electron webviews without `ELECTRON_FORCE_RENDERER_ACCESSIBILITY=1`), the optional keyboard fallback is constrained by process, window title, whitelist, blocklist, and context checks. Dangerous context keywords (`rm -rf`, `del /f /s /q`, etc.) hard-block all labels when found in surrounding prompt text.
 
 ### Other Components
 - `TitleMatcher` — exact/contains/regex window title matching
@@ -171,5 +171,7 @@ tests/ClickRun.Tests/
 ├── SafetyFilterTests.cs
 ├── ButtonPrioritizerTests.cs
 ├── DebounceTrackerTests.cs
-└── LoggerSetupTests.cs
+├── LoggerSetupTests.cs
+├── VsCodeCompatibilityTests.cs
+└── AntigravityCompatibilityTests.cs
 ```

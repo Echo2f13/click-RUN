@@ -17,13 +17,18 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
   "restoreFocusAfterClick": true,
   "focusRestoreDelayMs": 50,
   "excludeAutomationIdFromHash": false,
-  "blockedLabels": ["Reject", "Cancel", "Deny"],
+  "blockedLabels": ["Reject", "Cancel", "Deny", "Proceed without executing", "Discard",
+                    "Run and Debug", "Run Task", "Run Without Debugging", "Accept All Changes"],
   "contextRequiredLabels": ["Yes"],
-  "safeContextKeywords": ["Allow write", "Allow access", "Permission", "Grant", "Make this edit", "apply edit", "run command", "execute"],
-  "dangerousContextKeywords": ["Delete", "Remove", "Overwrite", "Reset", "Drop", "Erase", "Destroy"],
+  "safeContextKeywords": ["Allow write", "Allow access", "Permission", "Grant", "Allow edit",
+                          "Allow all", "Make this edit", "apply edit", "run command", "execute",
+                          "Chat Confirmation Dialog", "confirmation pending",
+                          "Allow access to", "Allow network request", "tool execution"],
+  "dangerousContextKeywords": ["Overwrite", "Reset", "Drop", "Erase", "Destroy",
+                               "rm -rf", "del /f /s /q", "format c:"],
   "multiWindowMode": false,
   "enableKeyboardFallback": false,
-  "prefixMatchLabels": ["Allow", "Run", "Accept", "Approve", "Continue", "Yes", "Trust"],
+  "prefixMatchLabels": ["Allow", "Run", "Accept", "Approve", "Continue", "Yes", "Trust", "Proceed"],
   "trustFallbackMode": "off",
   "whitelist": [
     {
@@ -53,6 +58,27 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
         { "pattern": "Claude", "matchMode": "contains" }
       ],
       "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Accept command"]
+    },
+    {
+      "processName": "Antigravity IDE",
+      "windowTitles": [
+        { "pattern": "Antigravity IDE", "matchMode": "contains" }
+      ],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Proceed", "Accept", "Yes", "Yes, allow all edits this session", "Accept command"]
+    },
+    {
+      "processName": "Antigravity",
+      "windowTitles": [
+        { "pattern": "Antigravity", "matchMode": "contains" }
+      ],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Proceed", "Accept", "Yes", "Accept command"]
+    },
+    {
+      "processName": "Antigravity IDE - Insiders",
+      "windowTitles": [
+        { "pattern": "Antigravity IDE - Insiders", "matchMode": "contains" }
+      ],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Proceed", "Accept", "Yes", "Yes, allow all edits this session", "Accept command"]
     }
   ]
 }
@@ -121,8 +147,10 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
 
 ### `blockedLabels`
 - Type: `string[]`
-- Default: `["Reject", "Cancel", "Deny"]`
+- Default: `["Reject", "Cancel", "Deny", "Proceed without executing", "Discard", "Run and Debug", "Run Task", "Run Without Debugging", "Accept All Changes"]`
 - Button labels that are always rejected, even if they match a whitelist entry. Uses case-insensitive substring matching — a button labeled "Reject changes" would be blocked by the "Reject" entry. This is a hard safety constraint that runs before whitelist matching.
+
+The default list includes VS Code and Antigravity IDE toolbar buttons (`Run and Debug`, `Run Task`, `Run Without Debugging`, `Accept All Changes`) that would otherwise false-positive against the `Run` and `Accept` prefix match rules.
 
 ### `multiWindowMode`
 - Type: `bool`
@@ -137,8 +165,8 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
 
 ### `prefixMatchLabels`
 - Type: `string[]`
-- Default: `["Allow", "Run", "Accept", "Approve", "Continue", "Yes", "Trust"]`
-- Allows explicitly configured labels to match dynamic suffixes at a word boundary. For example, `"Allow"` matches `"Allow (Ctrl+Enter)"`, but does not match unrelated labels containing the word `Allow`. This is useful for VS Code agent confirmation buttons that expose keyboard shortcuts in their accessible names.
+- Default: `["Allow", "Run", "Accept", "Approve", "Continue", "Yes", "Trust", "Proceed"]`
+- Allows explicitly configured labels to match dynamic suffixes at a word boundary. For example, `"Allow"` matches `"Allow (Ctrl+Enter)"`, and `"Proceed"` matches `"Proceed (Ctrl+Enter)"`, but neither matches unrelated labels that merely contain the word. This is useful for VS Code and Antigravity agent confirmation buttons that expose keyboard shortcuts in their accessible names.
 
 ### `trustFallbackMode`
 - Type: `string`
@@ -175,13 +203,15 @@ Click Run is configured via a JSON file at `~/.clickrun/config.json`. On first r
 
 ### `safeContextKeywords`
 - Type: `string[]`
-- Default: `["Allow write", "Allow access", "Permission", "Grant", "Allow edit", "Allow all", "Make this edit", "apply edit", "run command", "execute"]`
+- Default: `["Allow write", "Allow access", "Permission", "Grant", "Allow edit", "Allow all", "Make this edit", "apply edit", "run command", "execute", "Chat Confirmation Dialog", "confirmation pending", "Allow access to", "Allow network request", "tool execution"]`
 - Keywords that must appear in the dialog context for context-required labels (like "Yes") to be clicked. Case-insensitive substring match against the combined window title + extracted UI context text.
 
 ### `dangerousContextKeywords`
 - Type: `string[]`
-- Default: `["Delete", "Remove", "Overwrite", "Reset", "Drop", "Erase", "Destroy"]`
-- Keywords that cause immediate rejection of context-required labels. Checked before safe keywords — if both a safe and dangerous keyword are present, the click is rejected. Case-insensitive substring match.
+- Default: `["Overwrite", "Reset", "Drop", "Erase", "Destroy", "rm -rf", "del /f /s /q", "format c:"]`
+- Keywords that cause immediate rejection of **all** button labels when found in the surrounding context text. This is a hard block — even a normally safe `Run` or `Proceed` button will be rejected if the prompt context contains one of these strings. Checked before safe keywords. Case-insensitive substring match.
+
+The default list includes destructive shell commands (`rm -rf`, `del /f /s /q`, `format c:`) to catch dangerous terminal commands in Antigravity and VS Code agent approval prompts.
 
 ### `whitelist`
 - Type: `WhitelistEntry[]`
@@ -203,7 +233,7 @@ For VS Code agent confirmations, the default targets are `Code` and `Code - Insi
 
 ## Antigravity IDE and Antigravity 2.0
 
-Click Run has first-class support for Google Antigravity IDE and Antigravity 2.0 (the standalone Agent Manager).
+Click Run has first-class support for Google Antigravity IDE and Antigravity 2.0 (the standalone Agent Manager), added in v2.5.0.
 
 ### One-Time Accessibility Setup
 Because Antigravity permission buttons live inside Chromium webviews, Electron does not expose them to the Windows UI Automation tree by default. You must run the following command in PowerShell and then restart Antigravity:
@@ -211,23 +241,47 @@ Because Antigravity permission buttons live inside Chromium webviews, Electron d
 ```powershell
 [System.Environment]::SetEnvironmentVariable('ELECTRON_FORCE_RENDERER_ACCESSIBILITY', '1', 'User')
 ```
-If this is not set, UI Automation will see zero buttons. (If `enableKeyboardFallback` is true, Click Run will attempt a degraded keyboard fallback, but setting the environment variable is strongly recommended).
+If this is not set, UI Automation will see zero buttons in Antigravity windows. If `enableKeyboardFallback` is `true`, Click Run will attempt a degraded keyboard fallback, but setting the environment variable is strongly recommended.
+
+### Supported Processes
+
+| Process name | Application |
+|---|---|
+| `Antigravity IDE` | Antigravity IDE (VS Code-based editor) |
+| `Antigravity` | Antigravity 2.0 standalone Agent Manager |
+| `Antigravity IDE - Insiders` | Antigravity IDE Canary |
+
+All three are included in the default config. Window-title `contains` matching scopes clicks to actual Antigravity windows.
 
 ### Recommended Config
-The built-in default config includes entries for `Antigravity IDE`, `Antigravity IDE - Insiders`, and `Antigravity` (the standalone agent manager):
-
 ```json
 {
-  "processName": "Antigravity IDE",
-  "windowTitles": [
-    { "pattern": "Antigravity IDE", "matchMode": "contains" }
-  ],
-  "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Proceed", "Accept", "Yes", "Yes, allow all edits this session", "Accept command"]
+  "enableKeyboardFallback": true,
+  "whitelist": [
+    {
+      "processName": "Antigravity IDE",
+      "windowTitles": [{ "pattern": "Antigravity IDE", "matchMode": "contains" }],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Proceed", "Accept", "Yes", "Yes, allow all edits this session", "Accept command"]
+    },
+    {
+      "processName": "Antigravity",
+      "windowTitles": [{ "pattern": "Antigravity", "matchMode": "contains" }],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Proceed", "Accept", "Yes", "Accept command"]
+    },
+    {
+      "processName": "Antigravity IDE - Insiders",
+      "windowTitles": [{ "pattern": "Antigravity IDE - Insiders", "matchMode": "contains" }],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Proceed", "Accept", "Yes", "Yes, allow all edits this session", "Accept command"]
+    }
+  ]
 }
 ```
 
 ### Trust Escalation Labels
 Buttons like `Always proceed` or `Trust workspace` are intentionally omitted from the default whitelist because they grant permanent or session-wide trust. If you wish to auto-click these, you must add them manually. We strongly recommend configuring them with `contextRequiredLabels` and `safeContextKeywords` (e.g., `"tool execution"` or `"trust the authors"`) to prevent accidental trust grants in other contexts.
+
+### VS Code Toolbar False Positives
+Since Antigravity IDE is a VS Code fork, it inherits toolbar buttons like `Run and Debug`, `Run Task`, `Run Without Debugging`, and `Accept All Changes`. These are on the default `blockedLabels` list and will be hard-rejected before label matching, preventing false positives. These toolbar buttons are only present in Antigravity IDE — not in the Antigravity 2.0 Agent Manager.
 
 ## Keyword Priority
 
@@ -310,7 +364,7 @@ Regex patterns are validated at startup. Invalid patterns cause Click Run to exi
 }
 ```
 
-### Production mode (minimal logging, multi-window)
+### Production mode (minimal logging, multi-window, all tools)
 ```json
 {
   "logLevel": "info",
@@ -332,6 +386,16 @@ Regex patterns are validated at startup. Invalid patterns cause Click Run to exi
       "processName": "Claude",
       "windowTitles": [{ "pattern": "Claude", "matchMode": "contains" }],
       "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Yes", "Accept", "Trust"]
+    },
+    {
+      "processName": "Antigravity IDE",
+      "windowTitles": [{ "pattern": "Antigravity IDE", "matchMode": "contains" }],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Proceed", "Accept", "Yes", "Accept command"]
+    },
+    {
+      "processName": "Antigravity",
+      "windowTitles": [{ "pattern": "Antigravity", "matchMode": "contains" }],
+      "buttonLabels": ["Run", "Allow", "Approve", "Continue", "Proceed", "Accept", "Yes", "Accept command"]
     }
   ]
 }

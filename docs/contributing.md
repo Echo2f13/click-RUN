@@ -45,29 +45,35 @@ Output: `installer\Output\ClickRunSetup.exe`
 
 ## Test Suite
 
-The suite contains 337 tests across 10 test files, including VS Code compatibility, trust fallback integration, adversarial, and property-based coverage. The current verified baseline is 337 passed, 0 failed, and 0 skipped.
+The suite contains 363 tests across 11 test files, including VS Code compatibility, Antigravity compatibility, trust fallback integration, adversarial, and property-based coverage. The current verified baseline is 363 passed, 0 failed, and 0 skipped.
 
 - `SafetyFilterTests.cs` — whitelist matching, blocklist, wildcard safety, rejection reasons
 - `ButtonPrioritizerTests.cs` — intent priority and multi-candidate selection
 - `DebounceTrackerTests.cs` — hash computation, cooldown, pruning, and collision resistance
 - `TrustFallback*Tests.cs` — trust-dialog detection, safety checks, integration, adversarial, and property tests
 - `VsCodeCompatibilityTests.cs` — VS Code Stable/Insiders labels, title matching, and keyboard fallback context gates
+- `AntigravityCompatibilityTests.cs` — Antigravity IDE/2.0 labels, title matching, false-positive guards, dangerous context blocks, dynamic suffix handling, and keyboard fallback
 - `LoggerSetupTests.cs` — log level parsing and logger creation
 
-## VS Code Agent Validation
+## Validation
 
-ClickRun is a Windows tray application and should be validated on Windows with VS Code Stable or Insiders installed. Before enabling live clicks, use a configuration with `dryRun` set to `true`, debug logging enabled, and only the intended VS Code process and window-title entries whitelisted. Confirm a real agent prompt produces `Result=PASS` and `[DRY RUN] Would click` entries in `%USERPROFILE%\\.clickrun\\clickrun.log`.
+Click Run is a Windows tray application and must be validated on Windows. Before enabling live clicks, use a config with `dryRun: true`, debug logging enabled, and only the intended process/window-title entries whitelisted. Confirm a real agent prompt produces `Result=PASS` and `[DRY RUN] Would click` entries in `%USERPROFILE%\.clickrun\clickrun.log`.
 
-VS Code Stable uses the `Code` process name and VS Code Insiders uses `Code - Insiders`. Agent confirmation labels can include keyboard hints such as `Allow (Ctrl+Enter)`; the default configuration uses `prefixMatchLabels` for these dynamic suffixes. Do not add a new permission label to the whitelist without checking its exact accessible name and safety implications.
+**VS Code:** Stable uses `Code`, Insiders uses `Code - Insiders`. Agent confirmation labels can include keyboard hints such as `Allow (Ctrl+Enter)`; the default config uses `prefixMatchLabels` for these.
+
+**Antigravity:** Requires `ELECTRON_FORCE_RENDERER_ACCESSIBILITY=1` set as a user environment variable. Without it, the accessibility tree is empty and no buttons will be detected. Antigravity IDE uses `Antigravity IDE`; the Agent Manager uses `Antigravity`.
+
+Do not add a new permission label to the whitelist without checking its exact accessible name and safety implications.
 
 ## Release Checklist
 
-- Run the Debug build and complete test suite.
+- Run the Debug build and complete test suite (`dotnet test tests/ClickRun.Tests/ClickRun.Tests.csproj`).
 - Confirm the test count and pass/fail totals in the test output.
-- Test VS Code Stable and Insiders prompts in dry-run mode.
-- Verify the project and installer versions match.
+- Test VS Code Stable/Insiders and Antigravity IDE prompts in dry-run mode.
+- Verify the project and installer versions match (`ClickRun.csproj` and `installer/clickrun-setup.iss`).
 - Update `CHANGELOG.md` and relevant documentation for user-visible changes.
-- Build the installer on Windows with the .NET 8 SDK and Inno Setup 6 installed.
+- Build the release binary: `dotnet publish src/ClickRun/ClickRun.csproj -c Release`
+- Tag the release and create a GitHub release with the binary attached.
 
 ## Project Conventions
 

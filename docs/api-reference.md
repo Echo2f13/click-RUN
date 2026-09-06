@@ -17,10 +17,10 @@ Root configuration model. All properties have sensible defaults.
 | `EnableDebugInstrumentation` | `bool` | `false` | Per-element debug logging |
 | `DryRun` | `bool` | `false` | Simulate clicks without executing |
 | `PreClickDelayMs` | `int` | `0` | Pre-click delay in ms (clamped to 0-200) |
-| `BlockedLabels` | `List<string>` | `["Reject", "Cancel", "Deny"]` | Hard-rejected label substrings |
+| `BlockedLabels` | `List<string>` | `["Reject", "Cancel", "Deny", "Discard", "Run and Debug", ...]` | Hard-rejected label substrings |
 | `ContextRequiredLabels` | `List<string>` | `["Yes"]` | Labels requiring context validation |
-| `SafeContextKeywords` | `List<string>` | `["Allow write", ...]` | Safe context keywords for Yes validation |
-| `DangerousContextKeywords` | `List<string>` | `["Delete", ...]` | Dangerous context keywords (hard reject) |
+| `SafeContextKeywords` | `List<string>` | `["Allow write", "Allow access to", "tool execution", ...]` | Safe context keywords for Yes validation |
+| `DangerousContextKeywords` | `List<string>` | `["Overwrite", "rm -rf", "del /f /s /q", "format c:", ...]` | Dangerous context keywords (hard reject for ALL labels) |
 | `MultiWindowMode` | `bool` | `false` | Scan all whitelisted windows vs foreground only |
 | `EnableKeyboardFallback` | `bool` | `false` | Send numbered keys for Electron/webview panels |
 | `Whitelist` | `List<WhitelistEntry>` | `[]` | Target application entries |
@@ -89,6 +89,8 @@ public SafetyFilterResult Check(ElementDescriptor element, Configuration config)
 Returns `SafetyFilterResult` with `Passed`, `MatchedEntry`, and `RejectionReason`.
 
 Rejection reasons: `not_button`, `not_visible`, `not_enabled`, `blocked_label`, `dangerous_context`, `missing_safe_context`, `process_mismatch`, `title_mismatch`, `label_mismatch`.
+
+Note: `dangerous_context` is evaluated for **all** labels once a whitelist match is found — not only for context-required labels like `Yes`. A `Run` or `Proceed` button is rejected with `dangerous_context` if the surrounding prompt text contains a destructive keyword (`rm -rf`, `Drop`, etc.).
 
 ### `ButtonPrioritizer`
 ```csharp

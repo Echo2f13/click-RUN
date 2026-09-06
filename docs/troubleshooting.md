@@ -116,12 +116,18 @@ Common process names:
 | VS Code | `Code` |
 | VS Code Insiders | `Code - Insiders` |
 | Claude Desktop | `Claude` |
+| Antigravity IDE | `Antigravity IDE` |
+| Antigravity 2.0 | `Antigravity` |
+| Antigravity IDE Canary | `Antigravity IDE - Insiders` |
+| Antigravity IDE | `Antigravity IDE` |
+| Antigravity 2.0 | `Antigravity` |
+| Antigravity IDE Canary | `Antigravity IDE - Insiders` |
 
-## VS Code agent prompts
+## VS Code and Antigravity agent prompts
 
-VS Code Stable uses the `Code` process name; VS Code Insiders uses `Code - Insiders`. Both are included in the default configuration. Agent prompts rendered in webviews may expose no interactive UI Automation elements or may expose incomplete context text.
+VS Code Stable uses the `Code` process name; VS Code Insiders uses `Code - Insiders`. Antigravity IDE uses `Antigravity IDE`; Antigravity 2.0 uses `Antigravity`. All four are included in the default configuration.
 
-Enable debug instrumentation to diagnose this:
+Agent prompts rendered in Electron webviews may expose no interactive UI Automation elements. Enable debug instrumentation to diagnose this:
 
 ```json
 {
@@ -130,7 +136,15 @@ Enable debug instrumentation to diagnose this:
 }
 ```
 
-Look for `UIA: No interactive elements found` and `rawButtons=` in the log. If the keyboard fallback is enabled, it now requires both the configured process and window title to match. `Yes` options also require safe context keywords and are rejected when the context is missing or dangerous.
+Look for `UIA: No interactive elements found` and `rawButtons=` in the log.
+
+**For Antigravity specifically:** you must set `ELECTRON_FORCE_RENDERER_ACCESSIBILITY=1` once in PowerShell and restart Antigravity — without it, the accessibility tree will be empty:
+
+```powershell
+[System.Environment]::SetEnvironmentVariable('ELECTRON_FORCE_RENDERER_ACCESSIBILITY', '1', 'User')
+```
+
+If the keyboard fallback is enabled (`"enableKeyboardFallback": true`), it requires both the configured process and window title to match. `Yes` options also require safe context keywords and are rejected when context is missing or dangerous.
 
 ## Finding the correct button label
 
