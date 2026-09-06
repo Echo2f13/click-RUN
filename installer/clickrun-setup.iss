@@ -19,7 +19,7 @@
 ; Output: installer/Output/ClickRunSetup.exe
 
 #define MyAppName "Click Run"
-#define MyAppVersion "1.3.0"
+#define MyAppVersion "2.5.0"
 #define MyAppPublisher "Click Run Contributors"
 #define MyAppURL "https://github.com/Echo2f13/click-RUN"
 #define MyAppExeName "ClickRun.exe"
